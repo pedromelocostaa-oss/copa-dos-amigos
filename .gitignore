@@ -1,0 +1,14 @@
+﻿# Windows
+Thumbs.db
+Desktop.ini
+
+# Mac
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Node
+node_modules/
