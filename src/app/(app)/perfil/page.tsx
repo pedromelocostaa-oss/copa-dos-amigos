@@ -160,7 +160,7 @@ export default function PerfilPage() {
 
       {/* Logout */}
       <button onClick={handleLogout}
-        className="w-full py-3 text-sm text-red-400 hover:text-red-600 font-medium transition border border-red-100 hover:border-red-300 rounded-xl hover:bg-red-50">
+        className="w-full min-h-[52px] flex items-center justify-center gap-2 text-sm text-red-500 font-semibold border border-red-200 rounded-xl hover:bg-red-50 active:bg-red-100 transition">
         🚪 Sair da conta
       </button>
     </div>

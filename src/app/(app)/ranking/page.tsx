@@ -57,12 +57,12 @@ export default async function RankingPage({ searchParams }: Props) {
         )}
       </div>
 
-      {/* Seletor de bolão */}
+      {/* Seletor de bolão — min-h 48px */}
       {leagues.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
           {leagues.map(l => (
             <Link key={l.id} href={`/ranking?bolao=${l.id}`}
-              className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition border ${l.id === selectedLeague?.id ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-200 text-gray-600'}`}>
+              className={`shrink-0 px-5 min-h-[48px] flex items-center rounded-full text-sm font-medium transition border ${l.id === selectedLeague?.id ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-200 text-gray-600'}`}>
               {l.name}
             </Link>
           ))}

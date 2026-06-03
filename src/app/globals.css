@@ -7,34 +7,41 @@
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: #f9fafb;
-  color: var(--foreground);
+  color: #171717;
   font-family: Arial, Helvetica, sans-serif;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
+  /* Faster tap response on mobile */
+  touch-action: manipulation;
+}
+
+/* Prevents iOS double-tap zoom on links/buttons */
+a, button { touch-action: manipulation; }
+
+/* All inputs 16px to prevent iOS auto-zoom */
+input, textarea, select {
+  font-size: 16px !important;
 }
 
 /* Hide scrollbar but keep scroll */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* iOS safe area */
-.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+/* iOS safe area helpers */
+.pb-safe  { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe  { padding-top: env(safe-area-inset-top); }
 
-/* Prevent zoom on input focus iOS */
-input[type="number"], input[type="text"], input[type="email"], input[type="password"] {
-  font-size: 16px;
+/* Smooth momentum scrolling on iOS */
+.scroll-smooth-ios {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
 }
+
+/* Better tap highlight */
+button:active, a:active { opacity: 0.85; }

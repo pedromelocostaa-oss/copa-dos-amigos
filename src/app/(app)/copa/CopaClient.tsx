@@ -56,12 +56,13 @@ export default function CopaClient({ standings, nextMatches, finishedMatches, sc
         <p className="text-sm text-gray-400">EUA · Canadá · México — 11 Jun a 19 Jul</p>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — altura mínima 48px para tap targets corretos */}
       <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition ${tab === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            <span className="hidden sm:inline">{t.icon} </span>{t.label}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[52px] rounded-xl text-xs font-semibold transition active:opacity-70 ${tab === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+            <span className="text-base leading-none">{t.icon}</span>
+            <span>{t.label}</span>
           </button>
         ))}
       </div>
