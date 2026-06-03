@@ -1,23 +1,31 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Bolao } from '@/types'
+import Link from 'next/link'
 
-export default async function RankingPage() {
+interface Props {
+  searchParams: Promise<{ bolao?: string }>
+}
+
+export default async function RankingPage({ searchParams }: Props) {
+  const { bolao: bolaoParam } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: participant } = await supabase
-    .from('participants')
-    .select('*, boloes(*)')
+  interface MemberRow { bolao_id: string; boloes: Bolao }
+  const { data: memberRows } = await supabase
+    .from('bolao_members')
+    .select('bolao_id, boloes(id,name,scope,has_artilheiro,entry_fee)')
     .eq('user_id', user?.id)
-    .single()
 
-  const bolao = participant?.boloes as Bolao | null
+  const memberships = (memberRows as unknown as MemberRow[]) ?? []
+  const boloes = memberships.map(m => m.boloes).filter(Boolean)
+  const selectedBolao = boloes.find(b => b.id === bolaoParam) ?? boloes[0] ?? null
 
   const [{ data: ranking }, { count: totalPredictions }] = await Promise.all([
-    bolao
+    selectedBolao
       ? supabase.from('bolao_ranking')
           .select('*')
-          .eq('bolao_id', bolao.id)
+          .eq('bolao_id', selectedBolao.id)
           .order('total_points', { ascending: false })
           .order('exact_scores', { ascending: false })
           .order('last_prediction_at', { ascending: true })
@@ -32,12 +40,12 @@ export default async function RankingPage() {
   const medal = (pos: number) => pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : `${pos}º`
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">🏆 Ranking</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {bolao ? bolao.name : 'Global'} · {totalPredictions ?? 0} palpites registrados
+            {selectedBolao?.name ?? 'Global'} · {totalPredictions ?? 0} palpites
           </p>
         </div>
         {myPosition && (
@@ -49,7 +57,19 @@ export default async function RankingPage() {
         )}
       </div>
 
-      {/* Top 3 destaque */}
+      {/* Seletor de bolão */}
+      {boloes.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+          {boloes.map(b => (
+            <Link key={b.id} href={`/ranking?bolao=${b.id}`}
+              className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition border ${b.id === selectedBolao?.id ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-200 text-gray-600'}`}>
+              {b.name}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Top 3 */}
       {ranking && ranking.length >= 3 && (
         <div className="grid grid-cols-3 gap-2">
           {[ranking[1], ranking[0], ranking[2]].map((entry, visualIdx) => {
@@ -68,7 +88,7 @@ export default async function RankingPage() {
         </div>
       )}
 
-      {/* Tabela completa */}
+      {/* Tabela */}
       <div className="bg-white rounded-xl border shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600 text-xs uppercase">

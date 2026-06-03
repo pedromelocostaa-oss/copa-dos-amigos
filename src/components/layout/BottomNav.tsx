@@ -4,11 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const tabs = [
-  { href: '/dashboard', label: 'Início',    icon: '🏠' },
-  { href: '/palpites',  label: 'Palpites',  icon: '✏️' },
-  { href: '/bolao',     label: 'Meu Bolão', icon: '⚽' },
-  { href: '/ranking',   label: 'Ranking',   icon: '🏆' },
-  { href: '/perfil',    label: 'Perfil',    icon: '👤' },
+  { href: '/dashboard', label: 'Início',   icon: '🏠' },
+  { href: '/palpites',  label: 'Palpites', icon: '✏️' },
+  { href: '/copa',      label: 'Copa',     icon: '🌍' },
+  { href: '/ranking',   label: 'Ranking',  icon: '🏆' },
+  { href: '/perfil',    label: 'Perfil',   icon: '👤' },
 ]
 
 export default function BottomNav() {
@@ -18,7 +18,7 @@ export default function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="flex">
         {tabs.map(tab => {
-          const active = pathname.startsWith(tab.href)
+          const active = pathname === tab.href || (tab.href !== '/dashboard' && pathname.startsWith(tab.href))
           return (
             <Link key={tab.href} href={tab.href}
               className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors min-h-[56px] relative ${active ? 'text-green-600' : 'text-gray-500'}`}>

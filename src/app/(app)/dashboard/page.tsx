@@ -1,191 +1,165 @@
 import { createClient } from '@/lib/supabase/server'
 import FlagImage from '@/components/ui/FlagImage'
-import ShareButton from '@/components/ui/ShareButton'
 import Link from 'next/link'
-import type { Bolao } from '@/types'
+import JoinBolaoInline from './JoinBolaoInline'
 
-function calculatePrize(paidCount: number, entryFeeInCents: number) {
-  const pool = (paidCount * entryFeeInCents) / 100
-  return [
-    { position: 1, label: 'Ouro',   emoji: '🥇', percentage: 70, amount: pool * 0.70 },
-    { position: 2, label: 'Prata',  emoji: '🥈', percentage: 20, amount: pool * 0.20 },
-    { position: 3, label: 'Bronze', emoji: '🥉', percentage: 10, amount: pool * 0.10 },
-  ]
+interface BolaoRow {
+  id: string
+  name: string
+  code: string
+  scope: string
+  has_artilheiro: boolean
+  entry_fee: number
+}
+
+interface MemberRow {
+  bolao_id: string
+  payment_status: string
+  boloes: BolaoRow
 }
 
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: participant } = await supabase
-    .from('participants')
-    .select('*, boloes(*)')
-    .eq('user_id', user?.id)
-    .single()
-
-  const bolao = participant?.boloes as Bolao | null
-  const firstName = (participant?.name ?? 'Participante').split(' ')[0]
-
-  if (!bolao) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-gray-400">Carregando bolão...</p>
-      </div>
-    )
-  }
-
   const [
-    { data: ranking },
-    { count: memberCount },
-    { count: paidCount },
+    { data: participant },
+    { data: memberRows },
     { data: nextMatches },
-    { count: myPredictions },
   ] = await Promise.all([
-    supabase.from('bolao_ranking')
-      .select('*')
-      .eq('bolao_id', bolao.id)
-      .order('total_points', { ascending: false })
-      .order('exact_scores', { ascending: false })
-      .limit(3),
-    supabase.from('bolao_members').select('*', { count: 'exact', head: true }).eq('bolao_id', bolao.id),
-    supabase.from('bolao_members').select('*', { count: 'exact', head: true })
-      .eq('bolao_id', bolao.id).in('payment_status', ['pago', 'isento']),
-    supabase.from('matches').select('*').eq('is_finished', false)
-      .order('match_date', { ascending: true }).limit(5),
-    supabase.from('predictions').select('*', { count: 'exact', head: true }).eq('user_id', user?.id),
+    supabase.from('participants').select('name, is_admin').eq('user_id', user?.id).single(),
+    supabase.from('bolao_members').select('bolao_id, payment_status, boloes(id,name,code,scope,has_artilheiro,entry_fee)')
+      .eq('user_id', user?.id),
+    supabase.from('matches').select('id,home_team,away_team,home_iso,away_iso,match_date,stage')
+      .eq('is_finished', false).order('match_date', { ascending: true }).limit(4),
   ])
 
-  const prizes = calculatePrize(paidCount ?? 0, bolao.entry_fee)
-  const medal = (i: number) => ['🥇', '🥈', '🥉'][i] ?? `${i + 1}º`
-  const myRank = ranking?.find(r => r.user_id === user?.id)
-  const myPosition = myRank ? (ranking?.indexOf(myRank) ?? -1) + 1 : null
+  const firstName = (participant?.name ?? 'Participante').split(' ')[0]
+  const memberships = (memberRows as MemberRow[] | null) ?? []
+
+  // Para cada bolão, busca posição do usuário no ranking
+  const rankingData = await Promise.all(
+    memberships.map(async (m) => {
+      const { data } = await supabase.from('bolao_ranking')
+        .select('user_id, total_points')
+        .eq('bolao_id', m.bolao_id)
+        .order('total_points', { ascending: false })
+      const entries = data ?? []
+      const pos = entries.findIndex(e => e.user_id === user?.id) + 1
+      const pts = entries.find(e => e.user_id === user?.id)?.total_points ?? 0
+      return { bolao_id: m.bolao_id, position: pos || null, total_points: pts, total: entries.length }
+    })
+  )
+
+  const scopeIcon: Record<string, string> = {
+    todos: '🌍', fase_grupos: '📋', mata_mata: '⚔️',
+    times_especificos: '🏳️', jogos_especificos: '📌',
+  }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Olá, {firstName} 👋</h1>
-          <p className="text-gray-500 text-sm">{bolao.name}</p>
+          <p className="text-sm text-gray-500">Copa do Mundo 2026</p>
         </div>
-        {myPosition && (
-          <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2 text-center shrink-0">
-            <p className="text-xs text-green-600">Sua posição</p>
-            <p className="text-xl font-bold text-green-700">{medal(myPosition - 1)}</p>
-          </div>
+        {participant?.is_admin && (
+          <Link href="/admin" className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg transition">
+            Admin →
+          </Link>
         )}
       </div>
 
-      {/* Código do bolão + Compartilhar */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+      {/* Meus Bolões */}
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-400 font-medium">Código do bolão</p>
-            <p className="font-mono font-bold text-lg tracking-widest text-green-700">{bolao.code}</p>
-          </div>
-          <span className="text-sm text-gray-500">{memberCount ?? 0} participantes</span>
+          <h2 className="font-semibold text-gray-900">Meus bolões</h2>
+          <Link href="/onboarding" className="text-sm text-green-600 font-medium hover:underline">+ Criar novo</Link>
         </div>
-        <ShareButton bolaoCode={bolao.code} bolaoName={bolao.name} />
-      </div>
 
-      {/* Premiação */}
-      {bolao.entry_fee > 0 && (
-        <div className="grid grid-cols-3 gap-2">
-          {prizes.map(prize => (
-            <div key={prize.position} className="bg-white rounded-2xl shadow-sm p-3 border border-gray-100 text-center">
-              <div className="text-xl">{prize.emoji}</div>
-              <p className="text-gray-400 text-xs mt-0.5">{prize.percentage}%</p>
-              <p className="text-base font-bold text-gray-900">R${prize.amount.toFixed(0)}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Meus palpites progress */}
-      <div className="bg-green-600 rounded-2xl p-4 text-white">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <p className="text-sm font-medium text-green-100">Meus palpites</p>
-            <p className="text-2xl font-bold">
-              {myPredictions ?? 0} <span className="text-base font-normal text-green-200">registrados</span>
-            </p>
-          </div>
-          <Link href="/palpites"
-            className="bg-white text-green-700 font-semibold text-sm px-4 py-2 rounded-xl hover:bg-green-50 transition">
-            Palpitar →
-          </Link>
-        </div>
-        <div className="w-full bg-green-700 rounded-full h-1.5 mt-1">
-          <div className="bg-white h-1.5 rounded-full"
-            style={{ width: `${Math.min(((myPredictions ?? 0) / 72) * 100, 100)}%` }} />
-        </div>
-      </div>
-
-      {/* Top 3 do bolão */}
-      {ranking && ranking.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-            <h2 className="font-semibold text-gray-900 text-sm">Top 3 — {bolao.name}</h2>
-            <Link href="/ranking" className="text-green-600 text-sm font-medium">Ver tudo →</Link>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {ranking.map((entry, i) => (
-              <div key={entry.user_id}
-                className={`flex items-center px-4 py-3 gap-3 ${entry.user_id === user?.id ? 'bg-green-50' : ''}`}>
-                <span className="text-xl w-7 shrink-0">{medal(i)}</span>
-                <span className="flex-1 font-medium text-gray-900 truncate">
-                  {entry.name}
-                  {entry.user_id === user?.id && <span className="ml-1 text-xs text-green-600">(você)</span>}
-                </span>
-                <span className="font-bold text-green-700">{entry.total_points} pts</span>
+        {memberships.map((m) => {
+          const bolao = m.boloes
+          const rank = rankingData.find(r => r.bolao_id === m.bolao_id)
+          return (
+            <div key={m.bolao_id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{scopeIcon[bolao.scope] ?? '⚽'}</span>
+                    <p className="font-bold text-gray-900 truncate">{bolao.name}</p>
+                    {bolao.has_artilheiro && (
+                      <span className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded-md shrink-0">+ 🥅</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <span className="font-mono text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded font-medium">{bolao.code}</span>
+                    {rank?.position && rank.position > 0 ? (
+                      <span className="text-xs text-gray-500">{rank.position}º lugar · {rank.total_points} pts</span>
+                    ) : (
+                      <span className="text-xs text-gray-400">Sem palpites ainda</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5 shrink-0">
+                  <Link href={`/palpites?bolao=${m.bolao_id}`}
+                    className="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg transition text-center">
+                    Palpitar
+                  </Link>
+                  <Link href={`/ranking?bolao=${m.bolao_id}`}
+                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg transition text-center">
+                    Ranking
+                  </Link>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          )
+        })}
+
+        {/* Entrar em novo bolão inline */}
+        <JoinBolaoInline userId={user?.id ?? ''} />
+      </section>
 
       {/* Próximos jogos */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-          <h2 className="font-semibold text-gray-900 text-sm">Próximos jogos</h2>
-          <Link href="/palpites" className="text-green-600 text-sm font-medium">Ver todos →</Link>
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-gray-900">Próximos jogos</h2>
+          <Link href="/copa" className="text-sm text-green-600 font-medium hover:underline">Ver copa →</Link>
         </div>
-        {!nextMatches?.length ? (
-          <p className="text-gray-400 text-sm p-4">Nenhum jogo agendado.</p>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {nextMatches.map(match => (
-              <Link key={match.id} href="/palpites"
-                className="flex items-center px-4 py-3 gap-3 hover:bg-gray-50 transition active:bg-gray-100">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <FlagImage iso={match.home_iso} name={match.home_team} size={24} />
-                  <span className="text-sm font-medium text-gray-800 truncate">{match.home_team}</span>
-                </div>
-                <div className="text-center shrink-0">
-                  <p className="text-xs text-gray-400">
-                    {new Date(match.match_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                  </p>
-                  <p className="text-xs font-bold text-gray-500">
-                    {new Date(match.match_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                  <span className="text-sm font-medium text-gray-800 truncate text-right">{match.away_team}</span>
-                  <FlagImage iso={match.away_iso} name={match.away_team} size={24} />
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
+          {!nextMatches?.length ? (
+            <p className="text-gray-400 text-sm p-4">Nenhum jogo agendado.</p>
+          ) : nextMatches.map(match => (
+            <Link key={match.id} href={`/jogos/${match.id}`}
+              className="flex items-center px-4 py-3 gap-3 hover:bg-gray-50 transition">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <FlagImage iso={match.home_iso} name={match.home_team} size={22} />
+                <span className="text-sm font-medium text-gray-800 truncate">{match.home_team}</span>
+              </div>
+              <div className="text-center shrink-0">
+                <p className="text-xs text-gray-400">
+                  {new Date(match.match_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                </p>
+                <p className="text-xs font-bold text-gray-600">
+                  {new Date(match.match_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                <span className="text-sm font-medium text-gray-800 truncate text-right">{match.away_team}</span>
+                <FlagImage iso={match.away_iso} name={match.away_team} size={22} />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {/* Atalhos desktop */}
       <div className="hidden md:grid grid-cols-4 gap-3">
         {[
           { href: '/palpites', icon: '✏️', label: 'Palpites' },
-          { href: '/ranking', icon: '🏆', label: 'Ranking' },
-          { href: '/bolao', icon: '⚽', label: 'Meu Bolão' },
-          { href: '/perfil', icon: '👤', label: 'Perfil' },
+          { href: '/copa',     icon: '🌍', label: 'Copa' },
+          { href: '/ranking',  icon: '🏆', label: 'Ranking' },
+          { href: '/perfil',   icon: '👤', label: 'Perfil' },
         ].map(item => (
           <Link key={item.href} href={item.href}
             className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center hover:shadow-md transition">

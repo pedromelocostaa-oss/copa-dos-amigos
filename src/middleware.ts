@@ -24,32 +24,31 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
-  const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/cadastro')
+  const isAuthRoute   = pathname.startsWith('/login') || pathname.startsWith('/cadastro')
   const isPublicRoute = isAuthRoute || pathname.startsWith('/entrar/')
-  const isAdminRoute = pathname.startsWith('/admin')
-  const isOnboarding = pathname.startsWith('/onboarding')
+  const isAdminRoute  = pathname.startsWith('/admin')
+  const isOnboarding  = pathname.startsWith('/onboarding')
 
-  // Redireciona não-autenticados (exceto rotas públicas)
   if (!user && !isPublicRoute) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // Redireciona autenticados que tentam acessar login/cadastro
   if (user && isAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  // Verifica bolão ativo para rotas protegidas (exclui admin, onboarding e entrar/*)
+  // Verifica se usuário está em algum bolão (exceto admin, onboarding, entrar/*, auth)
   if (user && !isPublicRoute && !isAdminRoute && !isOnboarding) {
-    const { data: participant } = await supabase
-      .from('participants')
-      .select('active_bolao_id')
+    const { data: membership } = await supabase
+      .from('bolao_members')
+      .select('id')
       .eq('user_id', user.id)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
-    if (!participant?.active_bolao_id) {
+    if (!membership) {
       return NextResponse.redirect(new URL('/onboarding', request.url))
     }
   }
