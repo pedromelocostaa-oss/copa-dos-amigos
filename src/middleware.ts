@@ -41,15 +41,21 @@ export async function middleware(request: NextRequest) {
 
   // Verifica se usuário está em algum bolão (exceto admin, onboarding, entrar/*, auth)
   if (user && !isPublicRoute && !isAdminRoute && !isOnboarding) {
-    const { data: membership } = await supabase
-      .from('bolao_members')
-      .select('id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle()
+    try {
+      const { data: membership, error } = await supabase
+        .from('bolao_members')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle()
 
-    if (!membership) {
-      return NextResponse.redirect(new URL('/onboarding', request.url))
+      // Só redireciona se a query funcionou E não achou membership
+      // Se houve erro (ex: tabela não existe), deixa passar para evitar loop
+      if (!error && !membership) {
+        return NextResponse.redirect(new URL('/onboarding', request.url))
+      }
+    } catch {
+      // Se a query falhar, deixa o usuário passar — o page.tsx vai lidar
     }
   }
 
