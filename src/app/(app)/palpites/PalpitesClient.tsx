@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import FlagImage from '@/components/ui/FlagImage'
 import Link from 'next/link'
+import { useToast } from '@/components/ui/Toast'
 
 interface Match {
   id: string; home_team: string; away_team: string; home_iso: string; away_iso: string
@@ -34,6 +35,8 @@ function formatDate(dateStr: string) {
 export default function PalpitesClient({ matches, predictions, userId, leagues, selectedLeagueId }: Props) {
   const supabase = createClient()
   const router = useRouter()
+  const { toast } = useToast()
+
   const [preds, setPreds] = useState<Record<string, { home: string; away: string }>>(() => {
     const map: Record<string, { home: string; away: string }> = {}
     predictions.forEach(p => { map[p.match_id] = { home: String(p.home_score), away: String(p.away_score) } })
@@ -41,8 +44,18 @@ export default function PalpitesClient({ matches, predictions, userId, leagues, 
   })
   const [saveState, setSaveState] = useState<Record<string, SaveState>>({})
   const [filter, setFilter] = useState<Filter>('abertos')
+  // U3.3: "now" atualizado a cada 30s para travar cards cujo kickoff passou
+  const [now, setNow] = useState(() => Date.now())
 
-  function isLocked(m: Match) { return new Date(m.match_date) <= new Date() || m.is_finished }
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Dependência de `now` garante que isLocked() re-avalia quando o timer dispara
+  function isLocked(m: Match) {
+    return new Date(m.match_date).getTime() <= now || m.is_finished
+  }
   function hasPred(matchId: string) { return !!(preds[matchId]?.home !== '' && preds[matchId]?.away !== '') }
 
   const save = useCallback(async (matchId: string, home: string, away: string) => {
@@ -53,9 +66,23 @@ export default function PalpitesClient({ matches, predictions, userId, leagues, 
     const { error } = existing
       ? await supabase.from('predictions').update(payload).eq('id', existing.id)
       : await supabase.from('predictions').insert(payload)
-    setSaveState(s => ({ ...s, [matchId]: error ? 'error' : 'saved' }))
+
+    if (error) {
+      // U3.3: RLS rejeitou — jogo já começou. Travar o card imediatamente.
+      const isKickoffError = error.code === '42501' || error.message?.includes('row-level')
+      if (isKickoffError) {
+        toast('Este jogo já começou — palpite travado.', 'error')
+        // Força re-avaliação do isLocked atualizando o timestamp
+        setNow(Date.now())
+      }
+      setSaveState(s => ({ ...s, [matchId]: 'error' }))
+    } else {
+      setSaveState(s => ({ ...s, [matchId]: 'saved' }))
+      // Haptic feedback no mobile (U3.2)
+      if (typeof navigator.vibrate === 'function') navigator.vibrate(50)
+    }
     setTimeout(() => setSaveState(s => ({ ...s, [matchId]: 'idle' })), 2000)
-  }, [predictions, userId, supabase])
+  }, [predictions, userId, supabase, toast])
 
   // Filtragem
   const filteredMatches = useMemo(() => {
@@ -82,10 +109,10 @@ export default function PalpitesClient({ matches, predictions, userId, leagues, 
   const totalOpen = openCount
 
   // P1.4a: nudge de jogos fechando nas próximas 2h
-  const now = Date.now()
+  const currentTime = Date.now()
   const closingSoon = matches.filter(m => {
     if (isLocked(m)) return false
-    const diff = new Date(m.match_date).getTime() - now
+    const diff = new Date(m.match_date).getTime() - currentTime
     return diff > 0 && diff < 2 * 60 * 60 * 1000 // < 2h
   })
 

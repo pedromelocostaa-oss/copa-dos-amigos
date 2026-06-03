@@ -3,27 +3,34 @@ import FlagImage from '@/components/ui/FlagImage'
 import Link from 'next/link'
 import JoinBolaoInline from './JoinBolaoInline'
 import DashboardBolao from './DashboardBolao'
+import Countdown from './Countdown'
 
 interface LeagueRow { id: string; name: string; code: string; owner_id: string; entry_fee: number }
 interface MemberRow { league_id: string; leagues: LeagueRow }
 
 const ORIGIN = 'https://copa-dos-amigos.vercel.app'
 
-const NEWS = [
-  { tag: '🇧🇷 Brasil', title: 'Seleção Brasileira confirma lista para a Copa', desc: 'Vinícius Jr., Rodrygo e Endrick são confirmados por Ancelotti', href: 'https://ge.globo.com/futebol/selecao-brasileira/' },
-  { tag: '📅 Copa 2026', title: 'Copa começa em 11 de junho de 2026', desc: '104 jogos • 48 seleções • EUA, Canadá e México', href: 'https://www.fifa.com/fifaplus/pt/tournaments/mens/worldcup/canadamexicousa2026' },
-  { tag: '🏆 Favoritismo', title: 'Argentina, França e Brasil lideram favoritismo', desc: 'Confira as análises das principais seleções para 2026', href: 'https://www.espn.com.br/futebol/copa-do-mundo' },
-]
-
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: participant }, { data: memberRows }, { data: nextMatchRaw }] = await Promise.all([
+  const [{ data: participant }, { data: memberRows }, { data: nextMatchRaw }, { data: todayMatches }, { data: recentResults }] = await Promise.all([
     supabase.from('participants').select('name, is_admin, payment_status').eq('user_id', user?.id).single(),
     supabase.from('league_members').select('league_id, leagues(id,name,code,owner_id,entry_fee)').eq('user_id', user?.id),
     supabase.from('matches').select('id,home_team,away_team,home_iso,away_iso,match_date,stage,group_name')
       .eq('is_finished', false).order('match_date', { ascending: true }).limit(1).maybeSingle(),
+    // Jogos do dia (próximas 24h)
+    supabase.from('matches').select('id,home_team,away_team,home_iso,away_iso,match_date,stage,group_name')
+      .eq('is_finished', false)
+      .gte('match_date', new Date().toISOString())
+      .lte('match_date', new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString())
+      .order('match_date', { ascending: true })
+      .limit(4),
+    // Últimos resultados
+    supabase.from('matches').select('id,home_team,away_team,home_iso,away_iso,home_score,away_score,match_date')
+      .eq('is_finished', true)
+      .order('match_date', { ascending: false })
+      .limit(3),
   ])
 
   const firstName = (participant?.name ?? 'Participante').split(' ')[0]
@@ -138,11 +145,12 @@ export default async function DashboardPage() {
         <div className="bg-green-600 rounded-2xl p-4 text-white">
           <div className="flex items-center justify-between mb-3">
             <p className="text-green-200 text-xs font-bold uppercase tracking-wide">⚡ Próximo jogo</p>
-            <p className="text-green-200 text-xs">
-              {new Date(nextMatch.match_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-              {' · '}
-              {new Date(nextMatch.match_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-green-200 text-xs">
+                {new Date(nextMatch.match_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+              </span>
+              <Countdown matchDate={nextMatch.match_date} />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex flex-col items-center gap-2 flex-1">
@@ -207,34 +215,84 @@ export default async function DashboardPage() {
         <JoinBolaoInline userId={user?.id ?? ''} />
       </div>
 
-      {/* ── NOTÍCIAS DA COPA ── */}
+      {/* ── COPA DO MUNDO 2026 (dinâmico) ── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-gray-900">🌍 Copa do Mundo 2026</h2>
-          <Link href="/copa"
-            className="min-h-[44px] px-3 flex items-center text-sm text-green-600 font-semibold">
+          <Link href="/copa" className="min-h-[44px] px-3 flex items-center text-sm text-green-600 font-semibold">
             Ver tudo
           </Link>
         </div>
 
-        {NEWS.map((n, i) => (
-          <a key={i} href={n.href} target="_blank" rel="noopener noreferrer"
-            className="flex items-start gap-3 bg-white rounded-xl border border-gray-100 shadow-sm p-4 active:bg-gray-50 min-h-[72px]">
-            <div className="flex-1 min-w-0">
-              <span className="text-xs text-green-700 font-medium">{n.tag}</span>
-              <p className="font-semibold text-gray-900 text-sm mt-1 leading-snug">{n.title}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{n.desc}</p>
+        {/* Jogos do dia */}
+        {todayMatches && todayMatches.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide px-4 pt-3 pb-1">
+              📅 Jogos de hoje ({todayMatches.length})
+            </p>
+            <div className="divide-y divide-gray-50">
+              {todayMatches.map(m => (
+                <Link key={m.id} href={`/jogos/${m.id}`}
+                  className="flex items-center px-4 py-2.5 gap-3 hover:bg-gray-50 active:bg-gray-100 transition">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <FlagImage iso={m.home_iso} name={m.home_team} size={18} />
+                    <span className="text-xs font-semibold truncate">{m.home_team}</span>
+                  </div>
+                  <span className="text-xs text-gray-400 shrink-0 font-medium">
+                    {new Date(m.match_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                    <span className="text-xs font-semibold truncate text-right">{m.away_team}</span>
+                    <FlagImage iso={m.away_iso} name={m.away_team} size={18} />
+                  </div>
+                </Link>
+              ))}
             </div>
-            <span className="text-gray-300 shrink-0 text-lg mt-1">›</span>
-          </a>
-        ))}
+          </div>
+        )}
 
-        {/* Copa shortcuts */}
+        {/* Últimos resultados */}
+        {recentResults && recentResults.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide px-4 pt-3 pb-1">
+              ✅ Últimos resultados
+            </p>
+            <div className="divide-y divide-gray-50">
+              {recentResults.map(m => (
+                <Link key={m.id} href={`/jogos/${m.id}`}
+                  className="flex items-center px-4 py-2.5 gap-3 hover:bg-gray-50 active:bg-gray-100 transition">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <FlagImage iso={m.home_iso} name={m.home_team} size={18} />
+                    <span className="text-xs font-semibold truncate">{m.home_team}</span>
+                  </div>
+                  <span className="bg-gray-900 text-white text-xs font-bold px-2.5 py-1 rounded-lg shrink-0">
+                    {m.home_score} – {m.away_score}
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                    <span className="text-xs font-semibold truncate text-right">{m.away_team}</span>
+                    <FlagImage iso={m.away_iso} name={m.away_team} size={18} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Sem dados: placeholder até o torneio começar */}
+        {(!todayMatches || todayMatches.length === 0) && (!recentResults || recentResults.length === 0) && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center space-y-2">
+            <p className="text-3xl">⚽</p>
+            <p className="font-semibold text-gray-700">Copa começa em 11 de junho de 2026</p>
+            <p className="text-sm text-gray-400">EUA · Canadá · México — 48 seleções · 104 jogos</p>
+          </div>
+        )}
+
+        {/* Atalhos Copa */}
         <div className="grid grid-cols-4 gap-2">
           {[
-            { href: '/copa', label: 'Jogos', icon: '⚽' },
-            { href: '/copa', label: 'Grupos', icon: '📋' },
-            { href: '/copa', label: 'Mata-mata', icon: '⚔️' },
+            { href: '/copa', label: 'Jogos',      icon: '⚽' },
+            { href: '/copa', label: 'Grupos',     icon: '📋' },
+            { href: '/copa', label: 'Mata-mata',  icon: '⚔️' },
             { href: '/copa', label: 'Artilharia', icon: '🥅' },
           ].map((item, i) => (
             <Link key={i} href={item.href}

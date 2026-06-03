@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import CopyButton from './CopyButton'
 
 export default async function BolaoPage() {
   const supabase = await createClient()
@@ -79,11 +80,10 @@ export default async function BolaoPage() {
             className="flex-1 flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bc5a] text-white font-semibold py-3 rounded-xl transition text-sm">
             📲 Convidar no WhatsApp
           </a>
-          <button
-            onClick={`(async () => { try { await navigator.clipboard.writeText(${JSON.stringify(inviteMsg)}); } catch(e) {} })()` as unknown as () => void}
-            className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-xl transition">
+          <CopyButton text={inviteMsg}
+            className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-xl transition min-h-[48px]">
             📋
-          </button>
+          </CopyButton>
         </div>
       </div>
 

@@ -10,6 +10,7 @@ const links = [
   { href: '/palpites',      label: 'Palpites',      emoji: '✏️' },
   { href: '/copa',          label: 'Copa',          emoji: '🌍' },
   { href: '/ranking',       label: 'Ranking',       emoji: '🏆' },
+  { href: '/bolao',         label: 'Meu Bolão',     emoji: '⚽' },
   { href: '/como-funciona', label: 'Como Funciona', emoji: '❓' },
 ]
 
