@@ -3,19 +3,17 @@ import FlagImage from '@/components/ui/FlagImage'
 import Link from 'next/link'
 import JoinBolaoInline from './JoinBolaoInline'
 
-interface BolaoRow {
+interface LeagueRow {
   id: string
   name: string
   code: string
-  scope: string
-  has_artilheiro: boolean
-  entry_fee: number
+  owner_id: string
+  created_at: string
 }
 
 interface MemberRow {
-  bolao_id: string
-  payment_status: string
-  boloes: BolaoRow
+  league_id: string
+  leagues: LeagueRow
 }
 
 export default async function DashboardPage() {
@@ -28,18 +26,22 @@ export default async function DashboardPage() {
     { data: nextMatches },
   ] = await Promise.all([
     supabase.from('participants').select('name, is_admin').eq('user_id', user?.id).single(),
-    supabase.from('bolao_members').select('bolao_id, payment_status, boloes(id,name,code,scope,has_artilheiro,entry_fee)')
+    supabase.from('league_members')
+      .select('league_id, leagues(id,name,code,owner_id,created_at)')
       .eq('user_id', user?.id),
-    supabase.from('matches').select('id,home_team,away_team,home_iso,away_iso,match_date,stage')
-      .eq('is_finished', false).order('match_date', { ascending: true }).limit(4),
+    supabase.from('matches')
+      .select('id,home_team,away_team,home_iso,away_iso,match_date,stage')
+      .eq('is_finished', false)
+      .order('match_date', { ascending: true })
+      .limit(4),
   ])
 
   const firstName = (participant?.name ?? 'Participante').split(' ')[0]
-  const memberships = (memberRows as MemberRow[] | null) ?? []
-  const boloes = memberships.map(m => m.boloes).filter(Boolean)
+  const memberships = (memberRows as unknown as MemberRow[]) ?? []
+  const leagues = memberships.map(m => m.leagues).filter(Boolean)
 
-  // Se o usuário não tem nenhum bolão, mostra tela de boas-vindas
-  if (boloes.length === 0) {
+  // Sem bolão — mostra tela de boas-vindas
+  if (leagues.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6 text-center px-4">
         <div className="text-6xl">⚽</div>
@@ -49,34 +51,31 @@ export default async function DashboardPage() {
         </div>
         <div className="flex flex-col gap-3 w-full max-w-sm">
           <Link href="/onboarding"
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl transition text-lg">
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl transition text-lg text-center">
             🏆 Criar meu bolão
           </Link>
           <JoinBolaoInline userId={user?.id ?? ''} />
         </div>
-        <p className="text-xs text-gray-400">Crie um bolão e convide seus amigos com um código!</p>
       </div>
     )
   }
 
   // Para cada bolão, busca posição do usuário no ranking
   const rankingData = await Promise.all(
-    memberships.map(async (m) => {
-      const { data } = await supabase.from('bolao_ranking')
+    leagues.map(async (league) => {
+      const { data } = await supabase
+        .from('league_ranking')
         .select('user_id, total_points')
-        .eq('bolao_id', m.bolao_id)
+        .eq('league_id', league.id)
         .order('total_points', { ascending: false })
       const entries = data ?? []
       const pos = entries.findIndex(e => e.user_id === user?.id) + 1
       const pts = entries.find(e => e.user_id === user?.id)?.total_points ?? 0
-      return { bolao_id: m.bolao_id, position: pos || null, total_points: pts, total: entries.length }
+      return { league_id: league.id, position: pos || null, total_points: pts }
     })
   )
 
-  const scopeIcon: Record<string, string> = {
-    todos: '🌍', fase_grupos: '📋', mata_mata: '⚔️',
-    times_especificos: '🏳️', jogos_especificos: '📌',
-  }
+  const origin = 'https://copa-dos-amigos.vercel.app'
 
   return (
     <div className="space-y-6">
@@ -100,22 +99,17 @@ export default async function DashboardPage() {
           <Link href="/onboarding" className="text-sm text-green-600 font-medium hover:underline">+ Criar novo</Link>
         </div>
 
-        {memberships.map((m) => {
-          const bolao = m.boloes
-          const rank = rankingData.find(r => r.bolao_id === m.bolao_id)
+        {leagues.map((league) => {
+          const rank = rankingData.find(r => r.league_id === league.id)
+          const inviteMsg = `⚽ Entra no meu bolão da Copa!\n🏆 *${league.name}*\nAcesse: ${origin}/entrar/${league.code}\nCódigo: *${league.code}*`
+          const waUrl = `https://wa.me/?text=${encodeURIComponent(inviteMsg)}`
           return (
-            <div key={m.bolao_id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div key={league.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{scopeIcon[bolao.scope] ?? '⚽'}</span>
-                    <p className="font-bold text-gray-900 truncate">{bolao.name}</p>
-                    {bolao.has_artilheiro && (
-                      <span className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded-md shrink-0">+ 🥅</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <span className="font-mono text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded font-medium">{bolao.code}</span>
+                  <p className="font-bold text-gray-900 text-lg truncate">⚽ {league.name}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="font-mono text-sm text-green-700 bg-green-50 px-2 py-0.5 rounded font-bold">{league.code}</span>
                     {rank?.position && rank.position > 0 ? (
                       <span className="text-xs text-gray-500">{rank.position}º lugar · {rank.total_points} pts</span>
                     ) : (
@@ -124,21 +118,34 @@ export default async function DashboardPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5 shrink-0">
-                  <Link href={`/palpites?bolao=${m.bolao_id}`}
+                  <Link href={`/palpites?bolao=${league.id}`}
                     className="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg transition text-center">
-                    Palpitar
+                    ✏️ Palpitar
                   </Link>
-                  <Link href={`/ranking?bolao=${m.bolao_id}`}
+                  <Link href={`/ranking?bolao=${league.id}`}
                     className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg transition text-center">
-                    Ranking
+                    🏆 Ranking
                   </Link>
                 </div>
+              </div>
+              {/* Botão convidar */}
+              <div className="flex gap-2 pt-1 border-t border-gray-50">
+                <a href={waUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bc5a] text-white text-xs font-semibold py-2 rounded-lg transition">
+                  📲 Convidar no WhatsApp
+                </a>
+                <button
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(inviteMsg) } catch {}
+                  }}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium rounded-lg transition">
+                  📋 Copiar
+                </button>
               </div>
             </div>
           )
         })}
 
-        {/* Entrar em novo bolão inline */}
         <JoinBolaoInline userId={user?.id ?? ''} />
       </section>
 
@@ -162,7 +169,7 @@ export default async function DashboardPage() {
                 <p className="text-xs text-gray-400">
                   {new Date(match.match_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                 </p>
-                <p className="text-xs font-bold text-gray-600">
+                <p className="text-xs font-bold text-green-600">
                   {new Date(match.match_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>

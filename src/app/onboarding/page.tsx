@@ -3,20 +3,9 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { TEAMS } from '@/lib/teams-data'
-import type { BolaoScope } from '@/types'
 import { useToast } from '@/components/ui/Toast'
 
 type Mode = 'escolha' | 'criar' | 'entrar'
-type Step = 1 | 2 | 3 | 4
-
-const SCOPE_OPTIONS: { value: BolaoScope; icon: string; label: string; description: string }[] = [
-  { value: 'todos',             icon: '🌍', label: 'Todos os jogos',     description: '104 jogos — fase de grupos + mata-mata' },
-  { value: 'fase_grupos',       icon: '📋', label: 'Fase de grupos',     description: '72 jogos — apenas a fase de grupos' },
-  { value: 'mata_mata',         icon: '⚔️',  label: 'Mata-mata',          description: '32 jogos — oitavas até a final' },
-  { value: 'times_especificos', icon: '🏳️',  label: 'Times específicos', description: 'Palpite só nos jogos de seleções escolhidas' },
-  { value: 'jogos_especificos', icon: '📌', label: 'Jogos específicos',  description: 'Escolha partidas individuais' },
-]
 
 function generateCode(): string {
   return Math.random().toString(36).substring(2, 8).toUpperCase()
@@ -28,19 +17,13 @@ export default function OnboardingPage() {
   const { toast } = useToast()
 
   const [mode, setMode] = useState<Mode>('escolha')
-  const [step, setStep] = useState<Step>(1)
+  const [step, setStep] = useState<1 | 2>(1)
   const [loading, setLoading] = useState(false)
 
-  // Criar bolão
-  const [bolaoName, setBolaoName]     = useState('')
-  const [entryFee, setEntryFee]       = useState('')
-  const [scope, setScope]             = useState<BolaoScope>('todos')
-  const [selectedTeams, setSelectedTeams] = useState<string[]>([])
-  const [hasArtilheiro, setHasArtilheiro] = useState(false)
+  const [bolaoName, setBolaoName] = useState('')
+  const [entryFee, setEntryFee] = useState('')
   const [createdCode, setCreatedCode] = useState('')
   const [createdName, setCreatedName] = useState('')
-
-  // Entrar com código
   const [joinCode, setJoinCode] = useState('')
 
   async function handleCreate() {
@@ -50,33 +33,22 @@ export default function OnboardingPage() {
       if (!user) { router.push('/login'); return }
 
       const code = generateCode()
-      const feeInCents = Math.round(parseFloat(entryFee || '0') * 100)
-      const scopeConfig = scope === 'times_especificos' ? { teams: selectedTeams } : {}
+      const { data: league, error } = await supabase
+        .from('leagues')
+        .insert({ name: bolaoName.trim(), code, owner_id: user.id })
+        .select()
+        .single()
 
-      const { data: bolao, error } = await supabase.from('boloes').insert({
-        name: bolaoName.trim(),
-        code,
-        owner_id: user.id,
-        scope,
-        scope_config: scopeConfig,
-        has_artilheiro: hasArtilheiro,
-        entry_fee: feeInCents,
-      }).select().single()
+      if (error || !league) throw error ?? new Error('Erro ao criar bolão')
 
-      if (error || !bolao) throw error
-
-      await supabase.from('bolao_members').insert({
-        bolao_id: bolao.id,
-        user_id: user.id,
-        payment_status: 'isento',
-      })
-      await supabase.from('participants').update({ active_bolao_id: bolao.id }).eq('user_id', user.id)
+      await supabase.from('league_members').insert({ league_id: league.id, user_id: user.id })
 
       setCreatedCode(code)
       setCreatedName(bolaoName.trim())
-      setStep(4)
-    } catch {
-      toast('Erro ao criar bolão. Tente novamente.', 'error')
+      setStep(2)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Erro desconhecido'
+      toast(`Erro ao criar bolão: ${msg}`, 'error')
     } finally {
       setLoading(false)
     }
@@ -90,15 +62,18 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: bolao } = await supabase.from('boloes').select('id').eq('code', code).single()
-      if (!bolao) { toast('Código inválido. Verifique e tente novamente.', 'error'); return }
+      const { data: league } = await supabase
+        .from('leagues').select('id, name').eq('code', code).single()
+      if (!league) { toast('Código inválido. Verifique e tente novamente.', 'error'); return }
 
-      await supabase.from('bolao_members').upsert(
-        { bolao_id: bolao.id, user_id: user.id, payment_status: 'pendente' },
-        { onConflict: 'bolao_id,user_id' }
-      )
-      await supabase.from('participants').update({ active_bolao_id: bolao.id }).eq('user_id', user.id)
+      const { error } = await supabase
+        .from('league_members')
+        .upsert({ league_id: league.id, user_id: user.id }, { onConflict: 'league_id,user_id' })
+
+      if (error) throw error
+      toast(`Entrou em "${league.name}"!`, 'success')
       router.push('/dashboard')
+      router.refresh()
     } catch {
       toast('Erro ao entrar no bolão.', 'error')
     } finally {
@@ -106,18 +81,27 @@ export default function OnboardingPage() {
     }
   }
 
-  const shareMessage = `Entra no meu bolão da Copa! 🏆 ${createdName} — acesse: ${typeof window !== 'undefined' ? window.location.origin : ''}/entrar/${createdCode}`
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://copa-dos-amigos.vercel.app'
+  const inviteLink = `${origin}/entrar/${createdCode}`
+  const whatsappMsg = `⚽ Entra no meu bolão da Copa do Mundo 2026!\n\n🏆 *${createdName}*\n\nAcesse o link e se cadastre:\n${inviteLink}\n\nCódigo: *${createdCode}*`
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMsg)}`
 
-  async function handleShare() {
+  async function copyInvite() {
     if (navigator.share) {
-      try { await navigator.share({ title: createdName, text: shareMessage }); return } catch {}
+      try {
+        await navigator.share({ title: `Bolão: ${createdName}`, text: whatsappMsg, url: inviteLink })
+        return
+      } catch {}
     }
-    await navigator.clipboard.writeText(shareMessage)
-    toast('Link copiado!', 'success')
+    try {
+      await navigator.clipboard.writeText(whatsappMsg)
+      toast('Mensagem copiada! Cole no WhatsApp ou Instagram.', 'success')
+    } catch {
+      toast('Copie o link manualmente: ' + inviteLink, 'info')
+    }
   }
 
-  // ── TELA DE ESCOLHA ──────────────────────────────────────────────────
+  // ── ESCOLHA ──────────────────────────────────────
   if (mode === 'escolha') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-green-600 to-green-800 px-4 py-10">
@@ -154,7 +138,7 @@ export default function OnboardingPage() {
     )
   }
 
-  // ── ENTRAR COM CÓDIGO ────────────────────────────────────────────────
+  // ── ENTRAR COM CÓDIGO ────────────────────────────
   if (mode === 'entrar') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-green-800 px-4">
@@ -165,14 +149,10 @@ export default function OnboardingPage() {
             <h2 className="text-xl font-bold text-gray-900">Entrar em um bolão</h2>
             <p className="text-gray-500 text-sm">Digite o código de 6 letras</p>
           </div>
-          <input
-            value={joinCode}
-            onChange={e => setJoinCode(e.target.value.toUpperCase())}
+          <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
             onKeyDown={e => e.key === 'Enter' && handleJoin()}
-            maxLength={6}
-            placeholder="AB12CD"
-            className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-4 py-4 text-center text-3xl font-mono tracking-widest uppercase focus:outline-none transition"
-          />
+            maxLength={6} placeholder="AB12CD"
+            className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-4 py-4 text-center text-3xl font-mono tracking-widest uppercase focus:outline-none transition" />
           <button onClick={handleJoin} disabled={joinCode.length < 4 || loading}
             className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-40 text-lg min-h-[56px]">
             {loading ? 'Entrando...' : 'Entrar ⚽'}
@@ -182,25 +162,24 @@ export default function OnboardingPage() {
     )
   }
 
-  // ── CRIAR — PASSO 1: nome + valor ────────────────────────────────────
+  // ── CRIAR — PASSO 1 ──────────────────────────────
   if (mode === 'criar' && step === 1) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-green-800 px-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6">
           <button onClick={() => setMode('escolha')} className="text-gray-400 hover:text-gray-600 text-sm">← Voltar</button>
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Passo 1 de 3</p>
-            <h2 className="text-xl font-bold text-gray-900">Nome do bolão</h2>
+            <h2 className="text-xl font-bold text-gray-900">Criar bolão</h2>
+            <p className="text-gray-500 text-sm">Dê um nome para o seu bolão</p>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome do bolão</label>
               <input value={bolaoName} onChange={e => setBolaoName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && bolaoName.trim() && setStep(2)}
+                onKeyDown={e => e.key === 'Enter' && bolaoName.trim() && handleCreate()}
                 placeholder="Ex: Galera da Firma 🏆"
-                maxLength={50}
-                className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-4 py-3.5 focus:outline-none transition text-base"
-                autoFocus />
+                maxLength={50} autoFocus
+                className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-4 py-3.5 focus:outline-none transition text-base" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor por pessoa (opcional)</label>
@@ -210,166 +189,73 @@ export default function OnboardingPage() {
                   placeholder="0" min={0}
                   className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl pl-10 pr-4 py-3.5 focus:outline-none transition text-base" />
               </div>
-              {/* TODO: integração PIX para confirmação automática */}
-              <p className="text-xs text-gray-400 mt-1">Pagamentos confirmados manualmente pelo admin.</p>
+              <p className="text-xs text-gray-400 mt-1">Apenas referência — pagamentos confirmados manualmente.</p>
             </div>
           </div>
-          <button onClick={() => setStep(2)} disabled={!bolaoName.trim()}
+          <button onClick={handleCreate} disabled={!bolaoName.trim() || loading}
             className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-40 text-lg min-h-[56px]">
-            Próximo →
+            {loading ? 'Criando bolão...' : 'Criar bolão 🏆'}
           </button>
         </div>
       </div>
     )
   }
 
-  // ── CRIAR — PASSO 2: escopo dos jogos ────────────────────────────────
-  if (mode === 'criar' && step === 2) {
-    const allTeams = Object.keys(TEAMS).sort()
-    return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-green-600 to-green-800 px-4 py-8">
-        <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-auto space-y-5">
-          <button onClick={() => setStep(1)} className="text-gray-400 hover:text-gray-600 text-sm">← Voltar</button>
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Passo 2 de 3</p>
-            <h2 className="text-xl font-bold text-gray-900">Quais jogos?</h2>
-            <p className="text-gray-500 text-sm">Escolha os jogos que entram nos palpites</p>
-          </div>
-
-          <div className="space-y-2">
-            {SCOPE_OPTIONS.map(opt => (
-              <button key={opt.value} onClick={() => setScope(opt.value)}
-                className={`w-full text-left rounded-xl p-4 border-2 transition active:scale-[0.98] ${scope === opt.value ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{opt.icon}</span>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">{opt.label}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>
-                  </div>
-                  {scope === opt.value && <span className="text-green-600 text-xl shrink-0">✓</span>}
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {scope === 'times_especificos' && (
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Selecione as seleções:</p>
-              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                {allTeams.map(team => (
-                  <button key={team}
-                    onClick={() => setSelectedTeams(prev =>
-                      prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]
-                    )}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${selectedTeams.includes(team) ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-200'}`}>
-                    {team}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <button
-            onClick={() => setStep(3)}
-            disabled={scope === 'times_especificos' && selectedTeams.length === 0}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-40 text-lg min-h-[56px]">
-            Próximo →
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── CRIAR — PASSO 3: add-on artilheiro ──────────────────────────────
-  if (mode === 'criar' && step === 3) {
-    const scopeLabel: Record<BolaoScope, string> = {
-      todos:             'Todos os 104 jogos',
-      fase_grupos:       'Fase de grupos (72)',
-      mata_mata:         'Mata-mata (32)',
-      times_especificos: selectedTeams.length > 0
-        ? selectedTeams.slice(0, 3).join(', ') + (selectedTeams.length > 3 ? `… +${selectedTeams.length - 3}` : '')
-        : 'Times específicos',
-      jogos_especificos: 'Jogos específicos',
-    }
-
+  // ── PASSO 2 — CONVIDAR AMIGOS ────────────────────
+  if (step === 2) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-green-800 px-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6">
-          <button onClick={() => setStep(2)} className="text-gray-400 hover:text-gray-600 text-sm">← Voltar</button>
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Passo 3 de 3</p>
-            <h2 className="text-xl font-bold text-gray-900">Quer adicionar algo mais?</h2>
-            <p className="text-gray-500 text-sm">Combine tipos de aposta no mesmo bolão</p>
-          </div>
-
-          {/* Resumo do que foi escolhido */}
-          <div className="bg-gray-50 rounded-xl p-4 space-y-1">
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Seu bolão até agora</p>
-            <p className="font-bold text-gray-900">{bolaoName}</p>
-            <p className="text-sm text-green-700">✓ {scopeLabel[scope]}</p>
-          </div>
-
-          {/* Toggle artilheiro */}
-          <button onClick={() => setHasArtilheiro(v => !v)}
-            className={`w-full text-left rounded-2xl p-5 border-2 transition active:scale-[0.98] ${hasArtilheiro ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-            <div className="flex items-center gap-4">
-              <span className="text-3xl">🥅</span>
-              <div className="flex-1">
-                <p className="font-bold text-gray-900">+ Artilheiro da Copa</p>
-                <p className="text-sm text-gray-500 mt-0.5">Cada participante aposta no artilheiro. Pontuação separada.</p>
-              </div>
-              <div className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${hasArtilheiro ? 'bg-green-500' : 'bg-gray-300'}`}>
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${hasArtilheiro ? 'translate-x-7' : 'translate-x-1'}`} />
-              </div>
-            </div>
-          </button>
-
-          {hasArtilheiro && (
-            <p className="text-xs text-green-700 bg-green-50 rounded-xl px-4 py-3">
-              ✓ Seu bolão terá jogos <strong>e</strong> aposta no artilheiro — duas formas de pontuar!
-            </p>
-          )}
-
-          <button onClick={handleCreate} disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-40 text-lg min-h-[56px]">
-            {loading ? 'Criando...' : 'Criar bolão 🏆'}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── PASSO 4 — Compartilhar ───────────────────────────────────────────
-  if (step === 4) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-green-800 px-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6 text-center">
-          <div className="space-y-2">
+          {/* Sucesso */}
+          <div className="text-center space-y-2">
             <div className="text-5xl">🎉</div>
             <h2 className="text-2xl font-bold text-gray-900">Bolão criado!</h2>
-            <p className="text-gray-500 text-sm">Compartilhe o código com seus amigos</p>
+            <p className="text-gray-500 text-sm">Agora convide seus amigos</p>
           </div>
 
-          <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-5">
-            <p className="text-sm text-green-700 font-medium mb-1">Código do bolão</p>
+          {/* Código */}
+          <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-5 text-center">
+            <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-2">Código do bolão</p>
             <p className="text-5xl font-mono font-bold tracking-widest text-green-700">{createdCode}</p>
-            <p className="text-xs text-green-600 mt-2">Link: <strong>/entrar/{createdCode}</strong></p>
+            <p className="text-xs text-green-600 mt-2">Link: <span className="font-medium">{inviteLink}</span></p>
           </div>
 
-          <div className="flex flex-col gap-3">
-            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
-              className="w-full bg-[#25D366] hover:bg-[#20bc5a] text-white font-bold py-3.5 rounded-xl transition text-lg min-h-[56px] flex items-center justify-center gap-2">
-              📲 Compartilhar no WhatsApp
-            </a>
-            <button onClick={handleShare}
-              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 rounded-xl transition">
-              📋 Copiar link
-            </button>
-            <button onClick={() => router.push('/dashboard')}
-              className="text-green-600 font-medium hover:underline text-sm py-1">
-              Ir para o dashboard →
-            </button>
+          {/* Mensagem pronta */}
+          <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed">
+            <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Mensagem pronta para compartilhar:</p>
+            <p>⚽ Entra no meu bolão da Copa do Mundo 2026!</p>
+            <p className="font-bold mt-1">🏆 {createdName}</p>
+            <p className="mt-1">Acesse: <span className="text-green-600 break-all">{inviteLink}</span></p>
+            <p>Código: <span className="font-mono font-bold">{createdCode}</span></p>
           </div>
+
+          {/* Botões de compartilhamento */}
+          <div className="space-y-3">
+            <button onClick={copyInvite}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition text-base min-h-[56px] flex items-center justify-center gap-2">
+              📋 Copiar mensagem de convite
+            </button>
+            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
+              className="w-full bg-[#25D366] hover:bg-[#20bc5a] text-white font-bold py-4 rounded-xl transition text-base min-h-[56px] flex items-center justify-center gap-2">
+              <span className="text-xl">📲</span> Enviar no WhatsApp
+            </a>
+          </div>
+
+          {/* Próximos passos */}
+          <div className="bg-blue-50 rounded-xl p-4 space-y-2">
+            <p className="text-xs font-semibold text-blue-600 uppercase">Próximos passos</p>
+            <div className="space-y-1.5 text-sm text-blue-800">
+              <p>✅ <span className="font-medium">Feito:</span> Bolão criado</p>
+              <p>⏳ <span className="font-medium">Agora:</span> Convide seus amigos</p>
+              <p>💰 <span className="font-medium">Depois:</span> Confirmem o pagamento ({entryFee ? `R$${entryFee} por pessoa` : 'gratuito'})</p>
+              <p>🎯 <span className="font-medium">E então:</span> Façam os palpites!</p>
+            </div>
+          </div>
+
+          <button onClick={() => router.push('/dashboard')}
+            className="w-full text-green-600 font-medium hover:underline text-sm py-1">
+            Ir para o dashboard →
+          </button>
         </div>
       </div>
     )

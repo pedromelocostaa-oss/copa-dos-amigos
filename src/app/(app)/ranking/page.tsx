@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import type { Bolao } from '@/types'
 import Link from 'next/link'
 
 interface Props {
@@ -11,24 +10,25 @@ export default async function RankingPage({ searchParams }: Props) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  interface MemberRow { bolao_id: string; boloes: Bolao }
+  // Busca todos os bolões (leagues) do usuário
   const { data: memberRows } = await supabase
-    .from('bolao_members')
-    .select('bolao_id, boloes(id,name,scope,has_artilheiro,entry_fee)')
+    .from('league_members')
+    .select('league_id, leagues(id,name,code)')
     .eq('user_id', user?.id)
 
-  const memberships = (memberRows as unknown as MemberRow[]) ?? []
-  const boloes = memberships.map(m => m.boloes).filter(Boolean)
-  const selectedBolao = boloes.find(b => b.id === bolaoParam) ?? boloes[0] ?? null
+  interface MemberRow { league_id: string; leagues: { id: string; name: string; code: string } }
+  const leagues = ((memberRows as unknown as MemberRow[]) ?? []).map(m => m.leagues).filter(Boolean)
+
+  const selectedLeague = leagues.find(l => l.id === bolaoParam) ?? leagues[0] ?? null
 
   const [{ data: ranking }, { count: totalPredictions }] = await Promise.all([
-    selectedBolao
-      ? supabase.from('bolao_ranking')
+    selectedLeague
+      ? supabase.from('league_ranking')
           .select('*')
-          .eq('bolao_id', selectedBolao.id)
+          .eq('league_id', selectedLeague.id)
           .order('total_points', { ascending: false })
           .order('exact_scores', { ascending: false })
-          .order('last_prediction_at', { ascending: true })
+          .order('correct_results', { ascending: false })
       : supabase.from('ranking')
           .select('*')
           .order('total_points', { ascending: false }),
@@ -45,7 +45,7 @@ export default async function RankingPage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">🏆 Ranking</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {selectedBolao?.name ?? 'Global'} · {totalPredictions ?? 0} palpites
+            {selectedLeague?.name ?? 'Global'} · {totalPredictions ?? 0} palpites
           </p>
         </div>
         {myPosition && (
@@ -58,12 +58,12 @@ export default async function RankingPage({ searchParams }: Props) {
       </div>
 
       {/* Seletor de bolão */}
-      {boloes.length > 1 && (
+      {leagues.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
-          {boloes.map(b => (
-            <Link key={b.id} href={`/ranking?bolao=${b.id}`}
-              className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition border ${b.id === selectedBolao?.id ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-200 text-gray-600'}`}>
-              {b.name}
+          {leagues.map(l => (
+            <Link key={l.id} href={`/ranking?bolao=${l.id}`}
+              className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition border ${l.id === selectedLeague?.id ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-200 text-gray-600'}`}>
+              {l.name}
             </Link>
           ))}
         </div>
@@ -102,14 +102,10 @@ export default async function RankingPage({ searchParams }: Props) {
           </thead>
           <tbody>
             {!ranking?.length ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-gray-400">
-                  Nenhum palpite registrado ainda.
-                </td>
-              </tr>
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400">Nenhum palpite ainda.</td></tr>
             ) : ranking.map((entry, i) => (
               <tr key={entry.user_id}
-                className={`border-t border-gray-50 transition ${entry.user_id === user?.id ? 'bg-green-50 font-medium' : 'hover:bg-gray-50'}`}>
+                className={`border-t border-gray-50 ${entry.user_id === user?.id ? 'bg-green-50 font-medium' : 'hover:bg-gray-50'}`}>
                 <td className="px-3 py-3 text-base">{medal(i + 1)}</td>
                 <td className="px-3 py-3">
                   {entry.name}
@@ -124,7 +120,7 @@ export default async function RankingPage({ searchParams }: Props) {
         </table>
       </div>
       <p className="text-xs text-gray-400 text-center">
-        Desempate: placar exato (10pts) → resultado correto (5pts) → data do último palpite
+        Desempate: placar exato (10pts) → resultado correto (5pts)
       </p>
     </div>
   )
