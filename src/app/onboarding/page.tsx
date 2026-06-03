@@ -47,9 +47,12 @@ export default function OnboardingPage() {
       if (!user) { router.push('/login'); return }
 
       const code = generateCode()
+      // entry_fee em centavos (ex: R$20 → 2000)
+      const feeInCents = Math.round(parseFloat(entryFee || '0') * 100)
+
       const { data: league, error } = await supabase
         .from('leagues')
-        .insert({ name: bolaoName.trim(), code, owner_id: user.id })
+        .insert({ name: bolaoName.trim(), code, owner_id: user.id, entry_fee: feeInCents })
         .select().single()
 
       if (error || !league) throw error ?? new Error('Erro ao criar')

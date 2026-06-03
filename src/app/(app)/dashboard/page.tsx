@@ -4,7 +4,7 @@ import Link from 'next/link'
 import JoinBolaoInline from './JoinBolaoInline'
 import DashboardBolao from './DashboardBolao'
 
-interface LeagueRow { id: string; name: string; code: string; owner_id: string }
+interface LeagueRow { id: string; name: string; code: string; owner_id: string; entry_fee: number }
 interface MemberRow { league_id: string; leagues: LeagueRow }
 
 const ORIGIN = 'https://copa-dos-amigos.vercel.app'
@@ -21,7 +21,7 @@ export default async function DashboardPage() {
 
   const [{ data: participant }, { data: memberRows }, { data: nextMatchRaw }] = await Promise.all([
     supabase.from('participants').select('name, is_admin, payment_status').eq('user_id', user?.id).single(),
-    supabase.from('league_members').select('league_id, leagues(id,name,code,owner_id)').eq('user_id', user?.id),
+    supabase.from('league_members').select('league_id, leagues(id,name,code,owner_id,entry_fee)').eq('user_id', user?.id),
     supabase.from('matches').select('id,home_team,away_team,home_iso,away_iso,match_date,stage,group_name')
       .eq('is_finished', false).order('match_date', { ascending: true }).limit(1).maybeSingle(),
   ])
@@ -190,12 +190,17 @@ export default async function DashboardPage() {
           const entries = r?.entries ?? []
           const myEntry = entries.find(e => e.user_id === user?.id)
           const myPos = myEntry ? entries.indexOf(myEntry) + 1 : null
-          const inviteMsg = `⚽ Entra no meu bolão da Copa!\n🏆 *${league.name}*\n\nAcesse: ${ORIGIN}/entrar/${league.code}\nCódigo: *${league.code}*`
+          // entry_fee em centavos; prêmio = nº participantes × valor
+          const entryFee = league.entry_fee ?? 0
+          const prizePool = entryFee > 0 ? (entries.length * entryFee) / 100 : 0
+          const inviteMsg = entryFee > 0
+            ? `⚽ Entra no meu bolão da Copa!\n🏆 *${league.name}*\n💰 Entrada: R$${(entryFee/100).toFixed(0)} · Prêmio atual: R$${prizePool.toFixed(0)}\n\nAcesse: ${ORIGIN}/entrar/${league.code}\nCódigo: *${league.code}*`
+            : `⚽ Entra no meu bolão da Copa!\n🏆 *${league.name}*\n\nAcesse: ${ORIGIN}/entrar/${league.code}\nCódigo: *${league.code}*`
           const waUrl = `https://wa.me/?text=${encodeURIComponent(inviteMsg)}`
           return (
             <DashboardBolao key={league.id} id={league.id} name={league.name} code={league.code}
               entries={entries} myUserId={user?.id ?? ''} myPos={myPos} myPts={myEntry?.total_points ?? 0}
-              inviteMsg={inviteMsg} waUrl={waUrl} />
+              inviteMsg={inviteMsg} waUrl={waUrl} entryFee={entryFee} prizePool={prizePool} />
           )
         })}
 

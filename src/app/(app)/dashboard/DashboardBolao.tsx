@@ -20,11 +20,13 @@ interface Props {
   myPts: number
   inviteMsg: string
   waUrl: string
+  entryFee?: number   // centavos
+  prizePool?: number  // reais
 }
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
-export default function DashboardBolao({ id, name, code, entries, myUserId, myPos, myPts, inviteMsg, waUrl }: Props) {
+export default function DashboardBolao({ id, name, code, entries, myUserId, myPos, myPts, inviteMsg, waUrl, entryFee = 0, prizePool = 0 }: Props) {
   const { toast } = useToast()
 
   async function copyInvite() {
@@ -50,6 +52,11 @@ export default function DashboardBolao({ id, name, code, entries, myUserId, myPo
             {myPos && myPos > 0
               ? <span className="text-xs text-gray-500 font-medium">{myPos}º lugar · {myPts} pts</span>
               : <span className="text-xs text-gray-400">Sem palpites ainda</span>}
+            {prizePool > 0 && (
+              <span className="text-xs text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-lg font-semibold">
+                🏆 R${prizePool.toFixed(0)}
+              </span>
+            )}
           </div>
         </div>
 
