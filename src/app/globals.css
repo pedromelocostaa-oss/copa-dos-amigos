@@ -20,7 +20,21 @@
 }
 
 body {
-  background: var(--background);
+  background: #f9fafb;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hide scrollbar but keep scroll */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* iOS safe area */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Prevent zoom on input focus iOS */
+input[type="number"], input[type="text"], input[type="email"], input[type="password"] {
+  font-size: 16px;
 }

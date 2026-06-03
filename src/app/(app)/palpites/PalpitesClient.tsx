@@ -1,8 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Match, Prediction } from '@/types'
+import FlagImage from '@/components/ui/FlagImage'
+
+interface Match {
+  id: string
+  home_team: string
+  away_team: string
+  home_iso: string
+  away_iso: string
+  match_date: string
+  stage: string
+  home_score?: number
+  away_score?: number
+  is_finished: boolean
+}
+
+interface Prediction {
+  id: string
+  match_id: string
+  home_score: number
+  away_score: number
+}
 
 interface Props {
   matches: Match[]
@@ -11,107 +31,101 @@ interface Props {
   isPaid: boolean
 }
 
-type PredMap = Record<string, { home: string; away: string }>
-type SavingState = 'idle' | 'saving' | 'saved' | 'error'
+type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 export default function PalpitesClient({ matches, predictions, userId, isPaid }: Props) {
   const supabase = createClient()
 
-  const [preds, setPreds] = useState<PredMap>(() => {
-    const map: PredMap = {}
+  const [preds, setPreds] = useState<Record<string, { home: string; away: string }>>(() => {
+    const map: Record<string, { home: string; away: string }> = {}
     predictions.forEach(p => { map[p.match_id] = { home: String(p.home_score), away: String(p.away_score) } })
     return map
   })
-  const [saving, setSaving] = useState<Record<string, SavingState>>({})
+  const [saveState, setSaveState] = useState<Record<string, SaveState>>({})
   const [activeStage, setActiveStage] = useState<string | null>(null)
 
   function isLocked(match: Match) {
     return new Date(match.match_date) <= new Date() || match.is_finished
   }
 
-  async function savePrediction(matchId: string) {
-    const pred = preds[matchId]
-    if (!pred || pred.home === '' || pred.away === '') return
-    setSaving(s => ({ ...s, [matchId]: 'saving' }))
-
+  const save = useCallback(async (matchId: string, home: string, away: string) => {
+    if (home === '' || away === '') return
+    setSaveState(s => ({ ...s, [matchId]: 'saving' }))
     const existing = predictions.find(p => p.match_id === matchId)
-    const payload = { user_id: userId, match_id: matchId, home_score: parseInt(pred.home), away_score: parseInt(pred.away) }
-
+    const payload = { user_id: userId, match_id: matchId, home_score: parseInt(home), away_score: parseInt(away) }
     const { error } = existing
       ? await supabase.from('predictions').update(payload).eq('id', existing.id)
       : await supabase.from('predictions').insert(payload)
+    setSaveState(s => ({ ...s, [matchId]: error ? 'error' : 'saved' }))
+    setTimeout(() => setSaveState(s => ({ ...s, [matchId]: 'idle' })), 2000)
+  }, [predictions, userId, supabase])
 
-    setSaving(s => ({ ...s, [matchId]: error ? 'error' : 'saved' }))
-    setTimeout(() => setSaving(s => ({ ...s, [matchId]: 'idle' })), 2500)
-  }
-
-  // Group matches by stage
   const stages = [...new Set(matches.map(m => m.stage))]
-  const openMatches = matches.filter(m => !isLocked(m))
-  const completedCount = predictions.filter(p => p.home_score !== undefined).length
+  const completedCount = Object.keys(preds).length
+  const openCount = matches.filter(m => !isLocked(m)).length
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">✏️ Palpites</h1>
-          <p className="text-sm text-gray-500 mt-1">{completedCount} de {matches.length} jogos palpitados</p>
-        </div>
-        <div className="text-right">
-          <div className="w-32 bg-gray-200 rounded-full h-2 mt-3">
+    <div className="space-y-5">
+      {/* Header */}
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">✏️ Palpites</h1>
+        <div className="flex items-center gap-3 mt-2">
+          <div className="flex-1 bg-gray-200 rounded-full h-2">
             <div className="bg-green-500 h-2 rounded-full transition-all"
               style={{ width: `${matches.length ? (completedCount / matches.length) * 100 : 0}%` }} />
           </div>
+          <span className="text-sm text-gray-500 shrink-0">{completedCount}/{matches.length}</span>
         </div>
       </div>
 
       {!isPaid && (
-        <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-4 text-yellow-800 text-sm flex gap-3">
-          <span className="text-xl">⚠️</span>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex gap-3 items-start">
+          <span className="text-lg shrink-0">⚠️</span>
           <div>
-            <p className="font-semibold">Pagamento pendente</p>
-            <p>Seus palpites ficam bloqueados até o administrador confirmar o pagamento de R$20. Verifique seu perfil para mais detalhes.</p>
+            <p className="font-semibold text-yellow-800 text-sm">Pagamento pendente</p>
+            <p className="text-yellow-700 text-sm mt-0.5">Confirme seu pagamento de R$20 para liberar os palpites.</p>
           </div>
         </div>
       )}
 
-      {/* Stage filter */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      {/* Stage tabs — scrollable */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
         <button onClick={() => setActiveStage(null)}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition ${!activeStage ? 'bg-green-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'}`}>
-          Todos ({openMatches.length} abertos)
+          className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition ${!activeStage ? 'bg-green-600 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
+          Todos · {openCount} abertos
         </button>
         {stages.map(stage => {
-          const stageOpen = matches.filter(m => m.stage === stage && !isLocked(m)).length
+          const n = matches.filter(m => m.stage === stage && !isLocked(m)).length
           return (
-            <button key={stage} onClick={() => setActiveStage(stage)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition ${activeStage === stage ? 'bg-green-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'}`}>
-              {stage} {stageOpen > 0 && <span className="ml-1 bg-green-200 text-green-800 text-xs px-1.5 rounded-full">{stageOpen}</span>}
+            <button key={stage} onClick={() => setActiveStage(stage === activeStage ? null : stage)}
+              className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition ${activeStage === stage ? 'bg-green-600 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
+              {stage}{n > 0 ? ` · ${n}` : ''}
             </button>
           )
         })}
       </div>
 
+      {/* Match cards */}
       {stages.filter(s => !activeStage || s === activeStage).map(stage => {
         const stageMatches = matches.filter(m => m.stage === stage)
         const open = stageMatches.filter(m => !isLocked(m))
         const closed = stageMatches.filter(m => isLocked(m))
-
         return (
           <section key={stage}>
-            <h2 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              {stage}
-              {open.length > 0 && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{open.length} abertos</span>}
-            </h2>
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">{stage}</h2>
+              {open.length > 0 && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">{open.length} abertos</span>}
+            </div>
             <div className="space-y-2">
               {[...open, ...closed].map(match => (
-                <MatchCard key={match.id}
-                  match={match}
-                  locked={isLocked(match)}
+                <MatchCard key={match.id} match={match} locked={isLocked(match)}
                   value={preds[match.id]}
-                  onChange={(home, away) => setPreds(p => ({ ...p, [match.id]: { home, away } }))}
-                  onSave={() => savePrediction(match.id)}
-                  savingState={saving[match.id] ?? 'idle'}
+                  onChange={(home, away) => {
+                    setPreds(p => ({ ...p, [match.id]: { home, away } }))
+                  }}
+                  onBlur={(home, away) => save(match.id, home, away)}
+                  onSave={() => save(match.id, preds[match.id]?.home ?? '', preds[match.id]?.away ?? '')}
+                  saveState={saveState[match.id] ?? 'idle'}
                   disabled={!isPaid}
                 />
               ))}
@@ -127,75 +141,82 @@ interface CardProps {
   match: Match
   locked: boolean
   value?: { home: string; away: string }
-  onChange: (home: string, away: string) => void
+  onChange: (h: string, a: string) => void
+  onBlur: (h: string, a: string) => void
   onSave: () => void
-  savingState: SavingState
+  saveState: SaveState
   disabled: boolean
 }
 
-function MatchCard({ match, locked, value, onChange, onSave, savingState, disabled }: CardProps) {
-  const hasPrediction = value?.home !== undefined && value.away !== undefined
+function MatchCard({ match, locked, value, onChange, onBlur, onSave, saveState, disabled }: CardProps) {
+  const canEdit = !locked && !disabled
 
   return (
-    <div className={`bg-white rounded-xl border shadow-sm p-4 transition ${locked && !match.is_finished ? 'border-orange-200' : ''} ${match.is_finished ? 'opacity-80' : ''}`}>
-      <div className="flex items-center gap-2 sm:gap-4">
-        {/* Home team */}
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-2xl sm:text-3xl shrink-0">{match.home_flag}</span>
-          <span className="font-semibold text-gray-800 text-sm sm:text-base truncate">{match.home_team}</span>
+    <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${locked ? 'opacity-75' : ''}`}>
+      {/* Match info bar */}
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
+        <span className="text-xs text-gray-400">{match.stage}</span>
+        <span className="text-xs text-gray-500">
+          {new Date(match.match_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+        </span>
+        {locked && !match.is_finished && <span className="text-xs text-orange-500 font-medium">🔒 Fechado</span>}
+      </div>
+
+      {/* Teams + inputs */}
+      <div className="flex items-center px-4 py-4 gap-3">
+        {/* Home */}
+        <div className="flex flex-col items-center gap-1.5 flex-1">
+          <FlagImage iso={match.home_iso} name={match.home_team} size={40} />
+          <span className="text-xs font-semibold text-gray-800 text-center leading-tight">{match.home_team}</span>
         </div>
 
-        {/* Score inputs */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <input type="number" min={0} max={30} inputMode="numeric"
-            value={value?.home ?? ''}
-            onChange={e => onChange(e.target.value, value?.away ?? '')}
-            disabled={disabled || locked}
-            placeholder="–"
-            className="w-12 sm:w-14 h-12 text-center border-2 border-gray-200 rounded-xl text-lg font-bold focus:outline-none focus:border-green-500 disabled:bg-gray-50 disabled:text-gray-400 transition" />
-          <span className="text-gray-300 font-bold text-lg">×</span>
-          <input type="number" min={0} max={30} inputMode="numeric"
-            value={value?.away ?? ''}
-            onChange={e => onChange(value?.home ?? '', e.target.value)}
-            disabled={disabled || locked}
-            placeholder="–"
-            className="w-12 sm:w-14 h-12 text-center border-2 border-gray-200 rounded-xl text-lg font-bold focus:outline-none focus:border-green-500 disabled:bg-gray-50 disabled:text-gray-400 transition" />
+        {/* Inputs */}
+        <div className="flex items-center gap-2 shrink-0">
+          {match.is_finished ? (
+            <div className="flex items-center gap-2">
+              <span className="w-12 h-12 flex items-center justify-center text-xl font-bold text-gray-800 bg-gray-100 rounded-xl">{match.home_score}</span>
+              <span className="text-gray-400 text-sm font-bold">×</span>
+              <span className="w-12 h-12 flex items-center justify-center text-xl font-bold text-gray-800 bg-gray-100 rounded-xl">{match.away_score}</span>
+            </div>
+          ) : (
+            <>
+              <input type="number" inputMode="numeric" min={0} max={30}
+                value={value?.home ?? ''}
+                onChange={e => onChange(e.target.value, value?.away ?? '')}
+                onBlur={e => canEdit && onBlur(e.target.value, value?.away ?? '')}
+                disabled={!canEdit}
+                placeholder="–"
+                className="w-12 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-300 transition" />
+              <span className="text-gray-300 text-sm font-bold">×</span>
+              <input type="number" inputMode="numeric" min={0} max={30}
+                value={value?.away ?? ''}
+                onChange={e => onChange(value?.home ?? '', e.target.value)}
+                onBlur={e => canEdit && onBlur(value?.home ?? '', e.target.value)}
+                disabled={!canEdit}
+                placeholder="–"
+                className="w-12 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-300 transition" />
+            </>
+          )}
         </div>
 
-        {/* Away team */}
-        <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-          <span className="font-semibold text-gray-800 text-sm sm:text-base truncate text-right">{match.away_team}</span>
-          <span className="text-2xl sm:text-3xl shrink-0">{match.away_flag}</span>
+        {/* Away */}
+        <div className="flex flex-col items-center gap-1.5 flex-1">
+          <FlagImage iso={match.away_iso} name={match.away_team} size={40} />
+          <span className="text-xs font-semibold text-gray-800 text-center leading-tight">{match.away_team}</span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-50">
-        <div className="text-xs text-gray-400 space-y-0.5">
-          <div>{match.stage}</div>
-          <div>{new Date(match.match_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
-        </div>
-        <div className="flex items-center gap-2">
-          {match.is_finished && (
-            <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded-lg">
-              Resultado: {match.home_score} × {match.away_score}
-            </span>
-          )}
-          {!match.is_finished && locked && (
-            <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-lg">🔒 Encerrado</span>
-          )}
-          {!locked && !disabled && (
-            <button onClick={onSave}
-              disabled={savingState === 'saving' || !hasPrediction}
-              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition disabled:opacity-40 ${
-                savingState === 'saved' ? 'bg-green-100 text-green-700' :
-                savingState === 'error' ? 'bg-red-100 text-red-700' :
-                'bg-green-600 hover:bg-green-700 text-white'
-              }`}>
-              {savingState === 'saving' ? '...' : savingState === 'saved' ? '✓ Salvo' : savingState === 'error' ? '✗ Erro' : 'Salvar'}
-            </button>
+      {/* Save feedback */}
+      {canEdit && (
+        <div className="px-4 pb-3 flex justify-end">
+          {saveState === 'saving' && <span className="text-xs text-gray-400">Salvando...</span>}
+          {saveState === 'saved' && <span className="text-xs text-green-600 font-medium">✓ Salvo</span>}
+          {saveState === 'error' && <span className="text-xs text-red-500">Erro ao salvar</span>}
+          {saveState === 'idle' && value?.home !== '' && value?.away !== '' && (
+            <button onClick={onSave} className="text-xs text-green-600 font-medium hover:underline">Salvar</button>
           )}
         </div>
-      </div>
+      )}
     </div>
   )
 }
