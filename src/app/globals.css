@@ -1,47 +1,46 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ── Fonte ──────────────────────────────────────────────────────────────── */
+/* --font-geist é injetada pelo next/font no <html> via layout.tsx           */
+/* Tailwind não tem acesso a next/font em tempo de build; usamos a var CSS   */
+@theme {
+  --font-sans: var(--font-geist, system-ui, -apple-system, sans-serif);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* Fallback explícito: se --font-geist não carregar, usa system-ui */
 body {
+  font-family: var(--font-geist, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
   background: #f9fafb;
   color: #171717;
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
-  /* Faster tap response on mobile */
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Mobile: resposta imediata ao toque (remove delay de 300ms) */
   touch-action: manipulation;
+
+  /* Remove o flash de tap em iOS/Android */
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Prevents iOS double-tap zoom on links/buttons */
-a, button { touch-action: manipulation; }
+/* ── Tap targets ────────────────────────────────────────────────────────── */
+/* Resposta visual rápida no toque */
+button, a {
+  touch-action: manipulation;
+}
+button:active, a:active {
+  opacity: 0.82;
+}
 
-/* All inputs 16px to prevent iOS auto-zoom */
+/* ── Inputs ─────────────────────────────────────────────────────────────── */
+/* font-size ≥ 16px previne zoom automático no iOS quando input recebe foco  */
 input, textarea, select {
   font-size: 16px !important;
 }
 
-/* Hide scrollbar but keep scroll */
+/* ── Scrollbar ──────────────────────────────────────────────────────────── */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* iOS safe area helpers */
-.pb-safe  { padding-bottom: env(safe-area-inset-bottom); }
-.pt-safe  { padding-top: env(safe-area-inset-top); }
-
-/* Smooth momentum scrolling on iOS */
-.scroll-smooth-ios {
-  -webkit-overflow-scrolling: touch;
-  overflow-y: auto;
-}
-
-/* Better tap highlight */
-button:active, a:active { opacity: 0.85; }
+/* ── iOS safe area ──────────────────────────────────────────────────────── */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe { padding-top:    env(safe-area-inset-top);    }
