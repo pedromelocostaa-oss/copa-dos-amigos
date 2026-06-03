@@ -1,6 +1,8 @@
 export type PaymentStatus = 'pendente' | 'pago' | 'isento'
 
-export type BolaoScope = 'todos' | 'fase_grupos' | 'mata_mata' | 'times_especificos' | 'jogos_especificos'
+// BolaoScope removido (P2.2): escopo estava implementado só no frontend mas sem
+// suporte na view league_ranking — mantendo simples até migração boloes completa
+// export type BolaoScope = ...
 
 export interface Participant {
   id: string
@@ -58,7 +60,7 @@ export interface Bolao {
   name: string
   code: string
   owner_id: string
-  scope: BolaoScope
+  scope: string  // manter como string (BolaoScope removido - P2.2)
   scope_config: Record<string, unknown>
   has_artilheiro: boolean
   entry_fee: number
@@ -92,7 +94,8 @@ export interface Prize {
   amount: number
 }
 
-export function filterMatchesByScope(matches: Match[], scope: BolaoScope, scopeConfig: Record<string, unknown>): Match[] {
+// P2.2: função mantida por compatibilidade mas scope sempre 'todos' até migração boloes
+export function filterMatchesByScope(matches: Match[], scope: string, scopeConfig: Record<string, unknown>): Match[] {
   switch (scope) {
     case 'todos':
       return matches

@@ -81,6 +81,22 @@ export default function PalpitesClient({ matches, predictions, userId, leagues, 
   const openCount = matches.filter(m => !isLocked(m)).length
   const totalOpen = openCount
 
+  // P1.4a: nudge de jogos fechando nas próximas 2h
+  const now = Date.now()
+  const closingSoon = matches.filter(m => {
+    if (isLocked(m)) return false
+    const diff = new Date(m.match_date).getTime() - now
+    return diff > 0 && diff < 2 * 60 * 60 * 1000 // < 2h
+  })
+
+  // P1.4b: verifica se todos os jogos abertos de hoje foram palpitados
+  const todayMatches = matches.filter(m => {
+    const d = new Date(m.match_date)
+    const today = new Date()
+    return d.toDateString() === today.toDateString() && !isLocked(m)
+  })
+  const todayDone = todayMatches.length > 0 && todayMatches.every(m => hasPred(m.id))
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -94,6 +110,38 @@ export default function PalpitesClient({ matches, predictions, userId, leagues, 
           <span className="text-sm text-gray-500 shrink-0 font-medium">{completedCount}/{matches.length}</span>
         </div>
       </div>
+
+      {/* P1.4a: Banner "jogos fechando em breve" */}
+      {closingSoon.length > 0 && (
+        <div className="bg-orange-50 border border-orange-300 rounded-xl px-4 py-3 flex items-center gap-3">
+          <span className="text-xl shrink-0">⏰</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-orange-800 text-sm">
+              {closingSoon.length === 1
+                ? `1 jogo fecha em menos de 2h!`
+                : `${closingSoon.length} jogos fecham em menos de 2h!`}
+            </p>
+            <p className="text-orange-600 text-xs truncate">
+              {closingSoon.map(m => m.home_team.split(' ')[0]).join(', ')}
+            </p>
+          </div>
+          <button onClick={() => setFilter('abertos')}
+            className="shrink-0 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+            Palpitar
+          </button>
+        </div>
+      )}
+
+      {/* P1.4b: Microcelebração quando todos do dia feitos */}
+      {todayDone && (
+        <div className="bg-green-50 border border-green-300 rounded-xl px-4 py-3 flex items-center gap-3">
+          <span className="text-xl">🎉</span>
+          <div>
+            <p className="font-bold text-green-800 text-sm">Todos os jogos de hoje palpitados!</p>
+            <p className="text-green-600 text-xs">Volte amanhã para mais jogos.</p>
+          </div>
+        </div>
+      )}
 
       {/* Seletor de bolão (múltiplos) */}
       {leagues.length > 1 && (

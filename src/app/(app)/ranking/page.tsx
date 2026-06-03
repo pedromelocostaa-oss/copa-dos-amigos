@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import ShareRankingButton from './ShareRankingButton'
 
 interface Props {
   searchParams: Promise<{ bolao?: string }>
@@ -48,13 +49,23 @@ export default async function RankingPage({ searchParams }: Props) {
             {selectedLeague?.name ?? 'Global'} · {totalPredictions ?? 0} {totalPredictions === 1 ? 'palpite' : 'palpites'}
           </p>
         </div>
-        {myPosition && (
-          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2 text-center">
-            <p className="text-xs text-green-600">Sua posição</p>
-            <p className="text-2xl font-bold text-green-700">{medal(myPosition)}</p>
-            <p className="text-xs text-green-600">{myEntry?.total_points ?? 0} pts</p>
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {myPosition && (
+            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2 text-center">
+              <p className="text-xs text-green-600">Sua posição</p>
+              <p className="text-2xl font-bold text-green-700">{medal(myPosition)}</p>
+              <p className="text-xs text-green-600">{myEntry?.total_points ?? 0} pts</p>
+            </div>
+          )}
+          {/* P1.5: Compartilhar ranking como imagem */}
+          {ranking && ranking.length > 0 && (
+            <ShareRankingButton
+              ranking={ranking as Array<{ name: string; total_points: number; exact_scores: number; user_id: string }>}
+              myUserId={user?.id ?? ''}
+              leagueName={selectedLeague?.name ?? 'Ranking'}
+            />
+          )}
+        </div>
       </div>
 
       {/* Seletor de bolão — min-h 48px */}
