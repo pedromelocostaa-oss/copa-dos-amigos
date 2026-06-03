@@ -36,6 +36,28 @@ export default async function DashboardPage() {
 
   const firstName = (participant?.name ?? 'Participante').split(' ')[0]
   const memberships = (memberRows as MemberRow[] | null) ?? []
+  const boloes = memberships.map(m => m.boloes).filter(Boolean)
+
+  // Se o usuário não tem nenhum bolão, mostra tela de boas-vindas
+  if (boloes.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6 text-center px-4">
+        <div className="text-6xl">⚽</div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Bem-vindo, {firstName}!</h1>
+          <p className="text-gray-500 mt-2">Você ainda não está em nenhum bolão.</p>
+        </div>
+        <div className="flex flex-col gap-3 w-full max-w-sm">
+          <Link href="/onboarding"
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl transition text-lg">
+            🏆 Criar meu bolão
+          </Link>
+          <JoinBolaoInline userId={user?.id ?? ''} />
+        </div>
+        <p className="text-xs text-gray-400">Crie um bolão e convide seus amigos com um código!</p>
+      </div>
+    )
+  }
 
   // Para cada bolão, busca posição do usuário no ranking
   const rankingData = await Promise.all(
