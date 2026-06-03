@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function PostJoinSteps({ leagueName, leagueCode, memberCount, joinAction }: Props) {
-  const [joined, setJoined] = useState(false)
+  const [joined,  setJoined]  = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -22,6 +22,7 @@ export default function PostJoinSteps({ leagueName, leagueCode, memberCount, joi
     setLoading(false)
   }
 
+  // ── Antes de entrar: preview do bolão ────────────────────────────────────
   if (!joined) {
     return (
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6">
@@ -42,9 +43,15 @@ export default function PostJoinSteps({ leagueName, leagueCode, memberCount, joi
           </div>
         </div>
 
-        <form action={joinAction} onSubmit={async (e) => { e.preventDefault(); await handleJoin(); }}>
-          <button type="submit" disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl transition text-xl shadow-lg disabled:opacity-50">
+        <form
+          action={joinAction}
+          onSubmit={async e => { e.preventDefault(); await handleJoin() }}
+        >
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl transition text-xl shadow-lg disabled:opacity-50 min-h-[60px]"
+          >
             {loading ? 'Entrando...' : 'Entrar no bolão ⚽'}
           </button>
         </form>
@@ -52,63 +59,85 @@ export default function PostJoinSteps({ leagueName, leagueCode, memberCount, joi
     )
   }
 
-  // Entrou! Mostra próximos passos
+  // ── Após entrar: próximos passos (P1.1 — palpitar é o CTA primário) ──────
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6">
       <div className="text-center space-y-2">
         <div className="text-5xl">🎉</div>
         <h1 className="text-2xl font-bold text-gray-900">Bem-vindo ao {leagueName}!</h1>
-        <p className="text-gray-500 text-sm">Agora siga os próximos passos para participar.</p>
+        <p className="text-gray-500 text-sm">Você já está dentro. Hora de palpitar!</p>
       </div>
 
-      {/* Checklist de próximos passos */}
+      {/* Checklist — palpitar primeiro, pagamento secundário */}
       <div className="space-y-3">
+        {/* ✅ Entrou */}
         <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
-          <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">✓</div>
+          <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
+            ✓
+          </div>
           <div>
             <p className="font-bold text-green-800 text-sm">Entrou no bolão!</p>
-            <p className="text-xs text-green-600 mt-0.5">Código: <span className="font-mono font-bold">{leagueCode}</span></p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-3 bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4">
-          <div className="w-8 h-8 bg-yellow-400 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">2</div>
-          <div>
-            <p className="font-bold text-yellow-800 text-sm">Faça o depósito 💰</p>
-            <p className="text-xs text-yellow-700 mt-0.5">
-              Envie o valor combinado para o organizador do bolão e aguarde a confirmação de pagamento.
+            <p className="text-xs text-green-600 mt-0.5">
+              Código: <span className="font-mono font-bold">{leagueCode}</span>
             </p>
           </div>
         </div>
 
+        {/* → Palpitar (CTA primário) */}
+        <div className="flex items-start gap-3 bg-blue-50 border-2 border-blue-400 rounded-xl p-4">
+          <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
+            2
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-blue-800 text-sm">Cadastre seus palpites ✏️</p>
+            <p className="text-xs text-blue-700 mt-0.5">
+              10 pts placar exato · 5 pts resultado certo. Não perca os primeiros jogos!
+            </p>
+          </div>
+        </div>
+
+        {/* → Pagamento (nudge secundário — sem destaque) */}
         <div className="flex items-start gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <div className="w-8 h-8 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center text-sm font-bold shrink-0">3</div>
+          <div className="w-8 h-8 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-sm font-bold shrink-0">
+            3
+          </div>
           <div>
-            <p className="font-bold text-gray-700 text-sm">Cadastre seus palpites ✏️</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Escolha o placar de cada jogo antes de começar. 10 pts para placar exato, 5 pts para resultado correto.
+            <p className="font-medium text-gray-600 text-sm">Confirme o pagamento</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Combine com o organizador — sem pressa agora.
             </p>
           </div>
         </div>
 
+        {/* → Ranking */}
         <div className="flex items-start gap-3 bg-gray-50 border border-gray-100 rounded-xl p-4">
-          <div className="w-8 h-8 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center text-sm font-bold shrink-0">4</div>
+          <div className="w-8 h-8 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center text-sm font-bold shrink-0">
+            4
+          </div>
           <div>
-            <p className="font-bold text-gray-500 text-sm">Acompanhe o ranking 🏆</p>
+            <p className="font-medium text-gray-500 text-sm">Acompanhe o ranking 🏆</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              Pontos somados automaticamente após cada jogo. Veja em tempo real quem está ganhando!
+              Pontos somados automaticamente após cada jogo.
             </p>
           </div>
         </div>
       </div>
 
+      {/* CTAs */}
       <div className="space-y-3">
-        <button onClick={() => router.push('/palpites')}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-2xl transition text-base">
+        {/* CTA primário: palpitar */}
+        <button
+          onClick={() => router.push('/palpites')}
+          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl transition text-base min-h-[56px]"
+        >
           ✏️ Cadastrar meus palpites agora
         </button>
-        <button onClick={() => router.push('/dashboard')}
-          className="w-full text-gray-400 hover:text-gray-600 text-sm transition py-1">
+
+        {/* CTA secundário: dashboard */}
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="w-full flex items-center justify-center min-h-[48px] text-sm text-gray-400 hover:text-gray-600 transition"
+        >
           Ver meu dashboard →
         </button>
       </div>
