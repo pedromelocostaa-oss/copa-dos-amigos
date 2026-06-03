@@ -77,29 +77,26 @@ export default function CopaClient({ standings, nextMatches, finishedMatches, sc
               <div className="space-y-2">
                 {nextMatches.map(match => (
                   <Link key={match.id} href={`/jogos/${match.id}`}
-                    className="block bg-white rounded-xl border border-gray-100 shadow-sm p-3 hover:shadow-md transition">
-                    <div className="flex items-center gap-2 mb-2">
-                      {match.stage === 'Fase de Grupos' && match.group_name && (
-                        <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-medium">Grupo {match.group_name}</span>
-                      )}
-                      {match.stage !== 'Fase de Grupos' && (
-                        <span className="text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full font-medium">{match.stage}</span>
-                      )}
-                      <span className="text-xs text-gray-400 ml-auto">
+                    className="block bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 active:bg-gray-50 min-h-[72px]">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${match.stage === 'Fase de Grupos' ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
+                        {match.stage === 'Fase de Grupos' && match.group_name ? `Grupo ${match.group_name}` : match.stage}
+                      </span>
+                      <span className="text-xs text-gray-400">
                         {new Date(match.match_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
                         {' · '}
-                        {new Date(match.match_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        <strong className="text-gray-600">{new Date(match.match_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</strong>
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <FlagImage iso={match.home_iso} name={match.home_team} size={24} />
-                        <span className="text-sm font-semibold text-gray-900 truncate">{match.home_team}</span>
+                        <FlagImage iso={match.home_iso} name={match.home_team} size={22} />
+                        <span className="text-sm font-bold text-gray-900 truncate">{match.home_team}</span>
                       </div>
-                      <span className="text-xs font-bold text-gray-400 shrink-0">×</span>
+                      <span className="text-xs font-bold text-gray-300 shrink-0 px-2">VS</span>
                       <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                        <span className="text-sm font-semibold text-gray-900 truncate text-right">{match.away_team}</span>
-                        <FlagImage iso={match.away_iso} name={match.away_team} size={24} />
+                        <span className="text-sm font-bold text-gray-900 truncate text-right">{match.away_team}</span>
+                        <FlagImage iso={match.away_iso} name={match.away_team} size={22} />
                       </div>
                     </div>
                   </Link>
@@ -118,19 +115,19 @@ export default function CopaClient({ standings, nextMatches, finishedMatches, sc
                 </button>
               </div>
               <div className="space-y-2">
-                {(showFinished ? finishedMatches : finishedMatches.slice(-3)).reverse().map(match => (
+                {(showFinished ? finishedMatches : finishedMatches.slice(-5)).reverse().map(match => (
                   <Link key={match.id} href={`/jogos/${match.id}`}
-                    className="block bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 hover:shadow-md transition">
-                    <div className="flex items-center gap-3">
+                    className="block bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 active:bg-gray-50 min-h-[60px]">
+                    <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <FlagImage iso={match.home_iso} name={match.home_team} size={20} />
-                        <span className="text-sm font-medium text-gray-700 truncate">{match.home_team}</span>
+                        <span className="text-sm font-semibold text-gray-800 truncate">{match.home_team}</span>
                       </div>
-                      <div className="shrink-0 text-center bg-gray-900 text-white rounded-lg px-3 py-1">
-                        <span className="font-bold text-sm">{match.home_score} – {match.away_score}</span>
+                      <div className="shrink-0 bg-gray-900 text-white rounded-lg px-3 py-1.5 min-w-[72px] text-center">
+                        <span className="font-black text-base tabular-nums">{match.home_score} – {match.away_score}</span>
                       </div>
                       <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                        <span className="text-sm font-medium text-gray-700 truncate text-right">{match.away_team}</span>
+                        <span className="text-sm font-semibold text-gray-800 truncate text-right">{match.away_team}</span>
                         <FlagImage iso={match.away_iso} name={match.away_team} size={20} />
                       </div>
                     </div>

@@ -45,7 +45,7 @@ export default async function RankingPage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">🏆 Ranking</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {selectedLeague?.name ?? 'Global'} · {totalPredictions ?? 0} palpites
+            {selectedLeague?.name ?? 'Global'} · {totalPredictions ?? 0} {totalPredictions === 1 ? 'palpite' : 'palpites'}
           </p>
         </div>
         {myPosition && (
@@ -66,6 +66,18 @@ export default async function RankingPage({ searchParams }: Props) {
               {l.name}
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* Poucos participantes — CTA convidar */}
+      {ranking && ranking.length === 1 && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center space-y-3">
+          <p className="text-3xl">👥</p>
+          <p className="font-bold text-green-800">Você é o único participante!</p>
+          <p className="text-sm text-green-700">Convide mais amigos para o bolão para o ranking ficar mais animado.</p>
+          <a href="/dashboard" className="inline-flex items-center justify-center min-h-[48px] px-6 bg-green-600 text-white font-bold rounded-xl text-sm">
+            Convidar amigos →
+          </a>
         </div>
       )}
 
@@ -102,7 +114,13 @@ export default async function RankingPage({ searchParams }: Props) {
           </thead>
           <tbody>
             {!ranking?.length ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400">Nenhum palpite ainda.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-12 text-center">
+                <div className="space-y-2">
+                  <p className="text-3xl">🏆</p>
+                  <p className="text-gray-600 font-medium">Nenhum palpite registrado ainda</p>
+                  <p className="text-sm text-gray-400">Convide amigos e cadastre palpites para o ranking aparecer aqui!</p>
+                </div>
+              </td></tr>
             ) : ranking.map((entry, i) => (
               <tr key={entry.user_id}
                 className={`border-t border-gray-50 ${entry.user_id === user?.id ? 'bg-green-50 font-medium' : 'hover:bg-gray-50'}`}>
