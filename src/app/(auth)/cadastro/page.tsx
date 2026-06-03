@@ -1,18 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function CadastroPage() {
+function CadastroForm() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  const next = searchParams.get('next') ?? '/onboarding'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -29,7 +32,7 @@ export default function CadastroPage() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      router.push(next)
     }
   }
 
@@ -38,7 +41,7 @@ export default function CadastroPage() {
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-green-700">⚽ Copa dos Amigos</h1>
-          <p className="text-gray-500 mt-1">Crie sua conta — inscrição R$20</p>
+          <p className="text-gray-500 mt-1">Crie sua conta e entre no bolão</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -49,7 +52,7 @@ export default function CadastroPage() {
               value={name}
               onChange={e => setName(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-base"
               placeholder="Seu nome"
             />
           </div>
@@ -60,7 +63,7 @@ export default function CadastroPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-base"
               placeholder="seu@email.com"
             />
           </div>
@@ -72,7 +75,7 @@ export default function CadastroPage() {
               onChange={e => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-base"
               placeholder="Mínimo 6 caracteres"
             />
           </div>
@@ -82,17 +85,12 @@ export default function CadastroPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-lg transition disabled:opacity-50"
-          >
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl transition disabled:opacity-50 min-h-[48px]">
             {loading ? 'Criando conta...' : 'Criar conta'}
           </button>
         </form>
 
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 text-center">
-          Após o cadastro, envie o comprovante de R$20 para o administrador confirmar seu pagamento.
-        </div>
-
-        <p className="text-center text-sm text-gray-500 mt-4">
+        <p className="text-center text-sm text-gray-500 mt-6">
           Já tem conta?{' '}
           <Link href="/login" className="text-green-600 font-medium hover:underline">
             Fazer login
@@ -100,5 +98,13 @@ export default function CadastroPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function CadastroPage() {
+  return (
+    <Suspense>
+      <CadastroForm />
+    </Suspense>
   )
 }

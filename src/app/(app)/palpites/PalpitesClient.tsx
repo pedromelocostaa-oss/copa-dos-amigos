@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import FlagImage from '@/components/ui/FlagImage'
 import Link from 'next/link'
+import type { BolaoScope } from '@/types'
 
 interface Match {
   id: string
@@ -13,6 +14,7 @@ interface Match {
   away_iso: string
   match_date: string
   stage: string
+  group_name?: string
   home_score?: number
   away_score?: number
   is_finished: boolean
@@ -29,12 +31,13 @@ interface Props {
   matches: Match[]
   predictions: Prediction[]
   userId: string
-  isPaid: boolean
+  bolaoName?: string
+  bolaoScope?: BolaoScope
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-export default function PalpitesClient({ matches, predictions, userId, isPaid }: Props) {
+export default function PalpitesClient({ matches, predictions, userId, bolaoName, bolaoScope }: Props) {
   const supabase = createClient()
 
   const [preds, setPreds] = useState<Record<string, { home: string; away: string }>>(() => {
@@ -61,15 +64,33 @@ export default function PalpitesClient({ matches, predictions, userId, isPaid }:
     setTimeout(() => setSaveState(s => ({ ...s, [matchId]: 'idle' })), 2000)
   }, [predictions, userId, supabase])
 
+  if (bolaoScope === 'artilheiro') {
+    return (
+      <div className="space-y-5">
+        <h1 className="text-xl font-bold text-gray-900">✏️ Palpites — {bolaoName}</h1>
+        <div className="bg-white rounded-2xl border shadow-sm p-8 text-center space-y-3">
+          <div className="text-5xl">🥅</div>
+          <h2 className="font-semibold text-gray-900">Modo Artilheiro</h2>
+          <p className="text-gray-500 text-sm">
+            Neste bolão você aposta no artilheiro da Copa. {/* TODO: implementar form de artilheiro */}
+            Funcionalidade em breve.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const stages = [...new Set(matches.map(m => m.stage))]
-  const completedCount = Object.keys(preds).length
+  const completedCount = Object.keys(preds).filter(id => preds[id].home !== '' && preds[id].away !== '').length
   const openCount = matches.filter(m => !isLocked(m)).length
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold text-gray-900">✏️ Palpites</h1>
+        <h1 className="text-xl font-bold text-gray-900">
+          ✏️ Palpites{bolaoName ? ` — ${bolaoName}` : ''}
+        </h1>
         <div className="flex items-center gap-3 mt-2">
           <div className="flex-1 bg-gray-200 rounded-full h-2">
             <div className="bg-green-500 h-2 rounded-full transition-all"
@@ -78,16 +99,6 @@ export default function PalpitesClient({ matches, predictions, userId, isPaid }:
           <span className="text-sm text-gray-500 shrink-0">{completedCount}/{matches.length}</span>
         </div>
       </div>
-
-      {!isPaid && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex gap-3 items-start">
-          <span className="text-lg shrink-0">⚠️</span>
-          <div>
-            <p className="font-semibold text-yellow-800 text-sm">Pagamento pendente</p>
-            <p className="text-yellow-700 text-sm mt-0.5">Confirme seu pagamento de R$20 para liberar os palpites.</p>
-          </div>
-        </div>
-      )}
 
       {/* Stage tabs — scrollable */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
@@ -106,6 +117,13 @@ export default function PalpitesClient({ matches, predictions, userId, isPaid }:
         })}
       </div>
 
+      {matches.length === 0 && (
+        <div className="bg-white rounded-2xl border p-10 text-center text-gray-400">
+          <p className="text-4xl mb-3">📋</p>
+          <p>Nenhum jogo disponível para palpite neste bolão.</p>
+        </div>
+      )}
+
       {/* Match cards */}
       {stages.filter(s => !activeStage || s === activeStage).map(stage => {
         const stageMatches = matches.filter(m => m.stage === stage)
@@ -115,7 +133,11 @@ export default function PalpitesClient({ matches, predictions, userId, isPaid }:
           <section key={stage}>
             <div className="flex items-center gap-2 mb-3">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">{stage}</h2>
-              {open.length > 0 && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">{open.length} abertos</span>}
+              {open.length > 0 && (
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                  {open.length} abertos
+                </span>
+              )}
             </div>
             <div className="space-y-2">
               {[...open, ...closed].map(match => (
@@ -127,7 +149,6 @@ export default function PalpitesClient({ matches, predictions, userId, isPaid }:
                   onBlur={(home, away) => save(match.id, home, away)}
                   onSave={() => save(match.id, preds[match.id]?.home ?? '', preds[match.id]?.away ?? '')}
                   saveState={saveState[match.id] ?? 'idle'}
-                  disabled={!isPaid}
                 />
               ))}
             </div>
@@ -146,23 +167,22 @@ interface CardProps {
   onBlur: (h: string, a: string) => void
   onSave: () => void
   saveState: SaveState
-  disabled: boolean
 }
 
-function MatchCard({ match, locked, value, onChange, onBlur, onSave, saveState, disabled }: CardProps) {
-  const canEdit = !locked && !disabled
-
+function MatchCard({ match, locked, value, onChange, onBlur, onSave, saveState }: CardProps) {
   return (
     <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${locked ? 'opacity-75' : ''}`}>
       {/* Match info bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
-        <Link href={`/jogos/${match.id}`} className="text-xs text-green-600 hover:underline font-medium">
-          Grupo {(match as any).group_name || ''} · Ver detalhes →
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100 gap-2">
+        <Link href={`/jogos/${match.id}`} className="text-xs text-green-600 hover:underline font-medium truncate">
+          {match.group_name ? `Grupo ${match.group_name} ·` : ''} Ver detalhes →
         </Link>
-        <span className="text-xs text-gray-500">
-          {new Date(match.match_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+        <span className="text-xs text-gray-500 shrink-0">
+          {new Date(match.match_date).toLocaleDateString('pt-BR', {
+            weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+          })}
         </span>
-        {locked && !match.is_finished && <span className="text-xs text-orange-500 font-medium">🔒</span>}
+        {locked && !match.is_finished && <span className="text-xs text-orange-500 shrink-0">🔒</span>}
       </div>
 
       {/* Teams + inputs */}
@@ -173,29 +193,33 @@ function MatchCard({ match, locked, value, onChange, onBlur, onSave, saveState, 
           <span className="text-xs font-semibold text-gray-800 text-center leading-tight">{match.home_team}</span>
         </div>
 
-        {/* Inputs */}
+        {/* Inputs / Placar */}
         <div className="flex items-center gap-2 shrink-0">
           {match.is_finished ? (
             <div className="flex items-center gap-2">
-              <span className="w-12 h-12 flex items-center justify-center text-xl font-bold text-gray-800 bg-gray-100 rounded-xl">{match.home_score}</span>
+              <span className="w-12 h-12 flex items-center justify-center text-xl font-bold text-gray-800 bg-gray-100 rounded-xl">
+                {match.home_score}
+              </span>
               <span className="text-gray-400 text-sm font-bold">×</span>
-              <span className="w-12 h-12 flex items-center justify-center text-xl font-bold text-gray-800 bg-gray-100 rounded-xl">{match.away_score}</span>
+              <span className="w-12 h-12 flex items-center justify-center text-xl font-bold text-gray-800 bg-gray-100 rounded-xl">
+                {match.away_score}
+              </span>
             </div>
           ) : (
             <>
               <input type="number" inputMode="numeric" min={0} max={30}
                 value={value?.home ?? ''}
                 onChange={e => onChange(e.target.value, value?.away ?? '')}
-                onBlur={e => canEdit && onBlur(e.target.value, value?.away ?? '')}
-                disabled={!canEdit}
+                onBlur={e => !locked && onBlur(e.target.value, value?.away ?? '')}
+                disabled={locked}
                 placeholder="–"
                 className="w-12 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-300 transition" />
               <span className="text-gray-300 text-sm font-bold">×</span>
               <input type="number" inputMode="numeric" min={0} max={30}
                 value={value?.away ?? ''}
                 onChange={e => onChange(value?.home ?? '', e.target.value)}
-                onBlur={e => canEdit && onBlur(value?.home ?? '', e.target.value)}
-                disabled={!canEdit}
+                onBlur={e => !locked && onBlur(value?.home ?? '', e.target.value)}
+                disabled={locked}
                 placeholder="–"
                 className="w-12 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-300 transition" />
             </>
@@ -210,11 +234,11 @@ function MatchCard({ match, locked, value, onChange, onBlur, onSave, saveState, 
       </div>
 
       {/* Save feedback */}
-      {canEdit && (
-        <div className="px-4 pb-3 flex justify-end">
+      {!locked && (
+        <div className="px-4 pb-3 flex justify-end min-h-[24px]">
           {saveState === 'saving' && <span className="text-xs text-gray-400">Salvando...</span>}
-          {saveState === 'saved' && <span className="text-xs text-green-600 font-medium">✓ Salvo</span>}
-          {saveState === 'error' && <span className="text-xs text-red-500">Erro ao salvar</span>}
+          {saveState === 'saved'  && <span className="text-xs text-green-600 font-medium">✓ Salvo</span>}
+          {saveState === 'error'  && <span className="text-xs text-red-500">Erro ao salvar</span>}
           {saveState === 'idle' && value?.home !== '' && value?.away !== '' && (
             <button onClick={onSave} className="text-xs text-green-600 font-medium hover:underline">Salvar</button>
           )}

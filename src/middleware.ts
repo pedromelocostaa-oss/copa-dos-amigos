@@ -23,15 +23,35 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
-    request.nextUrl.pathname.startsWith('/cadastro')
+  const pathname = request.nextUrl.pathname
+  const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/cadastro')
+  const isPublicRoute = isAuthRoute || pathname.startsWith('/entrar/')
+  const isAdminRoute = pathname.startsWith('/admin')
+  const isOnboarding = pathname.startsWith('/onboarding')
 
-  if (!user && !isAuthRoute) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // Redireciona não-autenticados (exceto rotas públicas)
+  if (!user && !isPublicRoute) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('next', pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
+  // Redireciona autenticados que tentam acessar login/cadastro
   if (user && isAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  // Verifica bolão ativo para rotas protegidas (exclui admin, onboarding e entrar/*)
+  if (user && !isPublicRoute && !isAdminRoute && !isOnboarding) {
+    const { data: participant } = await supabase
+      .from('participants')
+      .select('active_bolao_id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!participant?.active_bolao_id) {
+      return NextResponse.redirect(new URL('/onboarding', request.url))
+    }
   }
 
   return supabaseResponse

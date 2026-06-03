@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
+import { ToastProvider } from '@/components/ui/Toast';
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -30,7 +31,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#15803d" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
-      <body className={`${geist.className} min-h-full bg-gray-50`}>{children}</body>
+      <body className={`${geist.className} min-h-full bg-gray-50`}>
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }

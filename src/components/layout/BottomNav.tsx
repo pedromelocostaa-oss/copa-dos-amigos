@@ -4,11 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const tabs = [
-  { href: '/dashboard', label: 'Início', icon: '🏠' },
-  { href: '/palpites', label: 'Palpites', icon: '✏️' },
-  { href: '/grupos', label: 'Grupos', icon: '📊' },
-  { href: '/ranking', label: 'Ranking', icon: '🏆' },
-  { href: '/perfil', label: 'Perfil', icon: '👤' },
+  { href: '/dashboard', label: 'Início',    icon: '🏠' },
+  { href: '/palpites',  label: 'Palpites',  icon: '✏️' },
+  { href: '/bolao',     label: 'Meu Bolão', icon: '⚽' },
+  { href: '/ranking',   label: 'Ranking',   icon: '🏆' },
+  { href: '/perfil',    label: 'Perfil',    icon: '👤' },
 ]
 
 export default function BottomNav() {
@@ -21,10 +21,13 @@ export default function BottomNav() {
           const active = pathname.startsWith(tab.href)
           return (
             <Link key={tab.href} href={tab.href}
-              className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs font-medium transition-colors min-h-[56px] ${active ? 'text-green-600' : 'text-gray-500'}`}>
+              className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors min-h-[56px] relative ${active ? 'text-green-600' : 'text-gray-500'}`}>
               <span className="text-xl leading-none">{tab.icon}</span>
-              <span className="text-[10px]">{tab.label}</span>
-              {active && <span className="absolute bottom-0 w-8 h-0.5 bg-green-600 rounded-full" style={{ marginBottom: 'env(safe-area-inset-bottom)' }} />}
+              <span className="text-[10px] font-medium">{tab.label}</span>
+              {active && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-green-600 rounded-full"
+                  style={{ marginBottom: 'env(safe-area-inset-bottom)' }} />
+              )}
             </Link>
           )
         })}
