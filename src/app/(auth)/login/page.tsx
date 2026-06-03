@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Suspense, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -24,7 +24,7 @@ function LoginForm() {
 
   async function handleGoogle() {
     setGL(true)
-    const redirectTo = `${window.location.origin}${next}`
+    const redirectTo = `${window.location.origin}/auth/callback?next=${next}`
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
@@ -183,3 +183,4 @@ function LoginForm() {
 export default function LoginPage() {
   return <Suspense><LoginForm /></Suspense>
 }
+
