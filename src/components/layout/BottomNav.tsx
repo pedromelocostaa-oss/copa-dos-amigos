@@ -6,8 +6,8 @@ import { usePathname } from 'next/navigation'
 const tabs = [
   { href: '/dashboard', label: 'Início', icon: '🏠' },
   { href: '/palpites', label: 'Palpites', icon: '✏️' },
+  { href: '/grupos', label: 'Grupos', icon: '📊' },
   { href: '/ranking', label: 'Ranking', icon: '🏆' },
-  { href: '/ligas', label: 'Ligas', icon: '⚽' },
   { href: '/perfil', label: 'Perfil', icon: '👤' },
 ]
 

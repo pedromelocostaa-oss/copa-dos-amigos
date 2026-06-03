@@ -23,6 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           { href: '/admin/participantes', label: 'Participantes' },
           { href: '/admin/pagamentos', label: 'Pagamentos' },
           { href: '/admin/resultados', label: 'Resultados' },
+          { href: '/admin/gols', label: '⚽ Gols' },
         ].map(l => (
           <Link key={l.href} href={l.href} className="text-sm hover:text-yellow-400 transition">
             {l.label}

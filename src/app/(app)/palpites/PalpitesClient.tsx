@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import FlagImage from '@/components/ui/FlagImage'
+import Link from 'next/link'
 
 interface Match {
   id: string
@@ -155,11 +156,13 @@ function MatchCard({ match, locked, value, onChange, onBlur, onSave, saveState, 
     <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${locked ? 'opacity-75' : ''}`}>
       {/* Match info bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
-        <span className="text-xs text-gray-400">{match.stage}</span>
+        <Link href={`/jogos/${match.id}`} className="text-xs text-green-600 hover:underline font-medium">
+          Grupo {(match as any).group_name || ''} · Ver detalhes →
+        </Link>
         <span className="text-xs text-gray-500">
           {new Date(match.match_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
         </span>
-        {locked && !match.is_finished && <span className="text-xs text-orange-500 font-medium">🔒 Fechado</span>}
+        {locked && !match.is_finished && <span className="text-xs text-orange-500 font-medium">🔒</span>}
       </div>
 
       {/* Teams + inputs */}
