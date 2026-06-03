@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "db:setup": "tsx scripts/db-setup.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
