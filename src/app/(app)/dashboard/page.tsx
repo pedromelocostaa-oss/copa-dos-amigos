@@ -2,19 +2,21 @@ import { createClient } from '@/lib/supabase/server'
 import FlagImage from '@/components/ui/FlagImage'
 import Link from 'next/link'
 import JoinBolaoInline from './JoinBolaoInline'
+import BolaoCard from './BolaoCard'
 
 interface LeagueRow {
   id: string
   name: string
   code: string
   owner_id: string
-  created_at: string
 }
 
 interface MemberRow {
   league_id: string
   leagues: LeagueRow
 }
+
+const ORIGIN = 'https://copa-dos-amigos.vercel.app'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -27,7 +29,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase.from('participants').select('name, is_admin').eq('user_id', user?.id).single(),
     supabase.from('league_members')
-      .select('league_id, leagues(id,name,code,owner_id,created_at)')
+      .select('league_id, leagues(id,name,code,owner_id)')
       .eq('user_id', user?.id),
     supabase.from('matches')
       .select('id,home_team,away_team,home_iso,away_iso,match_date,stage')
@@ -37,10 +39,11 @@ export default async function DashboardPage() {
   ])
 
   const firstName = (participant?.name ?? 'Participante').split(' ')[0]
-  const memberships = (memberRows as unknown as MemberRow[]) ?? []
-  const leagues = memberships.map(m => m.leagues).filter(Boolean)
+  const leagues = ((memberRows as unknown as MemberRow[]) ?? [])
+    .map(m => m.leagues)
+    .filter(Boolean)
 
-  // Sem bolão — mostra tela de boas-vindas
+  // Sem bolão — tela de boas-vindas
   if (leagues.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6 text-center px-4">
@@ -55,12 +58,16 @@ export default async function DashboardPage() {
             🏆 Criar meu bolão
           </Link>
           <JoinBolaoInline userId={user?.id ?? ''} />
+          <Link href="/como-funciona"
+            className="text-sm text-gray-400 hover:text-green-600 transition text-center py-1">
+            Como funciona? →
+          </Link>
         </div>
       </div>
     )
   }
 
-  // Para cada bolão, busca posição do usuário no ranking
+  // Busca ranking de cada bolão
   const rankingData = await Promise.all(
     leagues.map(async (league) => {
       const { data } = await supabase
@@ -74,8 +81,6 @@ export default async function DashboardPage() {
       return { league_id: league.id, position: pos || null, total_points: pts }
     })
   )
-
-  const origin = 'https://copa-dos-amigos.vercel.app'
 
   return (
     <div className="space-y-6">
@@ -101,48 +106,19 @@ export default async function DashboardPage() {
 
         {leagues.map((league) => {
           const rank = rankingData.find(r => r.league_id === league.id)
-          const inviteMsg = `⚽ Entra no meu bolão da Copa!\n🏆 *${league.name}*\nAcesse: ${origin}/entrar/${league.code}\nCódigo: *${league.code}*`
+          const inviteMsg = `⚽ Entra no meu bolão da Copa do Mundo 2026!\n🏆 *${league.name}*\n\nAcesse: ${ORIGIN}/entrar/${league.code}\nCódigo: *${league.code}*`
           const waUrl = `https://wa.me/?text=${encodeURIComponent(inviteMsg)}`
           return (
-            <div key={league.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 text-lg truncate">⚽ {league.name}</p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="font-mono text-sm text-green-700 bg-green-50 px-2 py-0.5 rounded font-bold">{league.code}</span>
-                    {rank?.position && rank.position > 0 ? (
-                      <span className="text-xs text-gray-500">{rank.position}º lugar · {rank.total_points} pts</span>
-                    ) : (
-                      <span className="text-xs text-gray-400">Sem palpites ainda</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5 shrink-0">
-                  <Link href={`/palpites?bolao=${league.id}`}
-                    className="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg transition text-center">
-                    ✏️ Palpitar
-                  </Link>
-                  <Link href={`/ranking?bolao=${league.id}`}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg transition text-center">
-                    🏆 Ranking
-                  </Link>
-                </div>
-              </div>
-              {/* Botão convidar */}
-              <div className="flex gap-2 pt-1 border-t border-gray-50">
-                <a href={waUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bc5a] text-white text-xs font-semibold py-2 rounded-lg transition">
-                  📲 Convidar no WhatsApp
-                </a>
-                <button
-                  onClick={async () => {
-                    try { await navigator.clipboard.writeText(inviteMsg) } catch {}
-                  }}
-                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium rounded-lg transition">
-                  📋 Copiar
-                </button>
-              </div>
-            </div>
+            <BolaoCard
+              key={league.id}
+              id={league.id}
+              name={league.name}
+              code={league.code}
+              position={rank?.position ?? null}
+              totalPoints={rank?.total_points ?? 0}
+              inviteMsg={inviteMsg}
+              waUrl={waUrl}
+            />
           )
         })}
 
@@ -185,10 +161,10 @@ export default async function DashboardPage() {
       {/* Atalhos desktop */}
       <div className="hidden md:grid grid-cols-4 gap-3">
         {[
-          { href: '/palpites', icon: '✏️', label: 'Palpites' },
-          { href: '/copa',     icon: '🌍', label: 'Copa' },
-          { href: '/ranking',  icon: '🏆', label: 'Ranking' },
-          { href: '/perfil',   icon: '👤', label: 'Perfil' },
+          { href: '/palpites',      icon: '✏️', label: 'Palpites' },
+          { href: '/copa',          icon: '🌍', label: 'Copa' },
+          { href: '/ranking',       icon: '🏆', label: 'Ranking' },
+          { href: '/como-funciona', icon: '❓', label: 'Como Funciona' },
         ].map(item => (
           <Link key={item.href} href={item.href}
             className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center hover:shadow-md transition">

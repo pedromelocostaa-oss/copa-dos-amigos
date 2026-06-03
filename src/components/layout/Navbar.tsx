@@ -6,13 +6,11 @@ import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 
 const links = [
-  { href: '/dashboard', label: 'Início', emoji: '🏠' },
-  { href: '/palpites', label: 'Palpites', emoji: '✏️' },
-  { href: '/grupos', label: 'Grupos', emoji: '📊' },
-  { href: '/ranking', label: 'Ranking', emoji: '🏆' },
-  { href: '/artilharia', label: 'Artilharia', emoji: '🥅' },
-  { href: '/chaveamento', label: 'Chaveamento', emoji: '🎯' },
-  { href: '/ligas', label: 'Ligas', emoji: '👥' },
+  { href: '/dashboard',     label: 'Início',        emoji: '🏠' },
+  { href: '/palpites',      label: 'Palpites',      emoji: '✏️' },
+  { href: '/copa',          label: 'Copa',          emoji: '🌍' },
+  { href: '/ranking',       label: 'Ranking',       emoji: '🏆' },
+  { href: '/como-funciona', label: 'Como Funciona', emoji: '❓' },
 ]
 
 export default function Navbar() {
