@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import AdminNav from './AdminNav'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -15,25 +15,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!participant?.is_admin) redirect('/dashboard')
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <nav className="bg-gray-900 text-white px-6 py-3 flex items-center gap-4">
-        <span className="font-bold text-yellow-400">⚙️ Admin</span>
-        {[
-          { href: '/admin', label: 'Dashboard' },
-          { href: '/admin/participantes', label: 'Participantes' },
-          { href: '/admin/pagamentos', label: 'Pagamentos' },
-          { href: '/admin/resultados', label: 'Resultados' },
-          { href: '/admin/gols', label: '⚽ Gols' },
-        ].map(l => (
-          <Link key={l.href} href={l.href} className="text-sm hover:text-yellow-400 transition">
-            {l.label}
-          </Link>
-        ))}
-        <Link href="/dashboard" className="ml-auto text-sm text-gray-400 hover:text-white">
-          ← Voltar ao app
-        </Link>
-      </nav>
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8">{children}</main>
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <AdminNav />
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-5 pb-8">{children}</main>
     </div>
   )
 }
