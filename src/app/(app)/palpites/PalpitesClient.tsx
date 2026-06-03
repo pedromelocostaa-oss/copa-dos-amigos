@@ -4,8 +4,6 @@ import { useCallback, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import FlagImage from '@/components/ui/FlagImage'
 import Link from 'next/link'
-import type { BolaoScope } from '@/types'
-
 interface Match {
   id: string
   home_team: string
@@ -32,13 +30,16 @@ interface Props {
   predictions: Prediction[]
   userId: string
   bolaoName?: string
-  bolaoScope?: BolaoScope
+  hasArtilheiro?: boolean
 }
+
+type Tab = 'jogos' | 'artilheiro'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-export default function PalpitesClient({ matches, predictions, userId, bolaoName, bolaoScope }: Props) {
+export default function PalpitesClient({ matches, predictions, userId, bolaoName, hasArtilheiro }: Props) {
   const supabase = createClient()
+  const [activeTab, setActiveTab] = useState<Tab>('jogos')
 
   const [preds, setPreds] = useState<Record<string, { home: string; away: string }>>(() => {
     const map: Record<string, { home: string; away: string }> = {}
@@ -64,22 +65,6 @@ export default function PalpitesClient({ matches, predictions, userId, bolaoName
     setTimeout(() => setSaveState(s => ({ ...s, [matchId]: 'idle' })), 2000)
   }, [predictions, userId, supabase])
 
-  if (bolaoScope === 'artilheiro') {
-    return (
-      <div className="space-y-5">
-        <h1 className="text-xl font-bold text-gray-900">✏️ Palpites — {bolaoName}</h1>
-        <div className="bg-white rounded-2xl border shadow-sm p-8 text-center space-y-3">
-          <div className="text-5xl">🥅</div>
-          <h2 className="font-semibold text-gray-900">Modo Artilheiro</h2>
-          <p className="text-gray-500 text-sm">
-            Neste bolão você aposta no artilheiro da Copa. {/* TODO: implementar form de artilheiro */}
-            Funcionalidade em breve.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
   const stages = [...new Set(matches.map(m => m.stage))]
   const completedCount = Object.keys(preds).filter(id => preds[id].home !== '' && preds[id].away !== '').length
   const openCount = matches.filter(m => !isLocked(m)).length
@@ -91,14 +76,42 @@ export default function PalpitesClient({ matches, predictions, userId, bolaoName
         <h1 className="text-xl font-bold text-gray-900">
           ✏️ Palpites{bolaoName ? ` — ${bolaoName}` : ''}
         </h1>
-        <div className="flex items-center gap-3 mt-2">
-          <div className="flex-1 bg-gray-200 rounded-full h-2">
-            <div className="bg-green-500 h-2 rounded-full transition-all"
-              style={{ width: `${matches.length ? (completedCount / matches.length) * 100 : 0}%` }} />
+        {activeTab === 'jogos' && (
+          <div className="flex items-center gap-3 mt-2">
+            <div className="flex-1 bg-gray-200 rounded-full h-2">
+              <div className="bg-green-500 h-2 rounded-full transition-all"
+                style={{ width: `${matches.length ? (completedCount / matches.length) * 100 : 0}%` }} />
+            </div>
+            <span className="text-sm text-gray-500 shrink-0">{completedCount}/{matches.length}</span>
           </div>
-          <span className="text-sm text-gray-500 shrink-0">{completedCount}/{matches.length}</span>
-        </div>
+        )}
       </div>
+
+      {/* Tabs: Jogos | Artilheiro */}
+      {hasArtilheiro && (
+        <div className="flex gap-2 bg-gray-100 rounded-xl p-1">
+          {(['jogos', 'artilheiro'] as Tab[]).map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+              {tab === 'jogos' ? '⚽ Jogos' : '🥅 Artilheiro'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Artilheiro tab */}
+      {activeTab === 'artilheiro' && (
+        <div className="bg-white rounded-2xl border shadow-sm p-8 text-center space-y-3">
+          <div className="text-5xl">🥅</div>
+          <h2 className="font-semibold text-gray-900">Artilheiro da Copa</h2>
+          <p className="text-gray-500 text-sm">
+            Em quem você aposta? {/* TODO: form de aposta no artilheiro */}
+            Funcionalidade em breve.
+          </p>
+        </div>
+      )}
+
+      {activeTab === 'jogos' && <>
 
       {/* Stage tabs — scrollable */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
@@ -155,6 +168,8 @@ export default function PalpitesClient({ matches, predictions, userId, bolaoName
           </section>
         )
       })}
+
+      </>}
     </div>
   )
 }

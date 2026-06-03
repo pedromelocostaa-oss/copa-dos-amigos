@@ -75,8 +75,10 @@ CREATE TABLE IF NOT EXISTS boloes (
   code text NOT NULL UNIQUE,
   owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   scope text NOT NULL DEFAULT 'todos'
-    CHECK (scope IN ('todos', 'fase_grupos', 'mata_mata', 'times_especificos', 'jogos_especificos', 'artilheiro')),
+    CHECK (scope IN ('todos', 'fase_grupos', 'mata_mata', 'times_especificos', 'jogos_especificos')),
   scope_config jsonb DEFAULT '{}',
+  -- add-on independente do escopo de jogos
+  has_artilheiro boolean NOT NULL DEFAULT false,
   -- entry_fee em centavos (ex: 2000 = R$20,00)
   entry_fee integer NOT NULL DEFAULT 0,
   prize_config jsonb DEFAULT '{"distribution": [70, 20, 10]}',

@@ -8,14 +8,14 @@ import type { BolaoScope } from '@/types'
 import { useToast } from '@/components/ui/Toast'
 
 type Mode = 'escolha' | 'criar' | 'entrar'
-type Step = 1 | 2 | 3
+type Step = 1 | 2 | 3 | 4
 
 const SCOPE_OPTIONS: { value: BolaoScope; icon: string; label: string; description: string }[] = [
-  { value: 'todos',              icon: '🌍', label: 'Todos os jogos',     description: '104 jogos — fase de grupos + mata-mata' },
-  { value: 'fase_grupos',        icon: '📋', label: 'Fase de grupos',     description: '72 jogos — apenas a fase de grupos' },
-  { value: 'mata_mata',          icon: '⚔️',  label: 'Mata-mata',          description: '32 jogos — oitavas até a final' },
-  { value: 'times_especificos',  icon: '🏳️',  label: 'Times específicos', description: 'Palpite só nos jogos de seleções escolhidas' },
-  { value: 'artilheiro',         icon: '🥅', label: 'Artilheiro',         description: 'Aposte no artilheiro da Copa' },
+  { value: 'todos',             icon: '🌍', label: 'Todos os jogos',     description: '104 jogos — fase de grupos + mata-mata' },
+  { value: 'fase_grupos',       icon: '📋', label: 'Fase de grupos',     description: '72 jogos — apenas a fase de grupos' },
+  { value: 'mata_mata',         icon: '⚔️',  label: 'Mata-mata',          description: '32 jogos — oitavas até a final' },
+  { value: 'times_especificos', icon: '🏳️',  label: 'Times específicos', description: 'Palpite só nos jogos de seleções escolhidas' },
+  { value: 'jogos_especificos', icon: '📌', label: 'Jogos específicos',  description: 'Escolha partidas individuais' },
 ]
 
 function generateCode(): string {
@@ -32,10 +32,11 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false)
 
   // Criar bolão
-  const [bolaoName, setBolaoName] = useState('')
-  const [entryFee, setEntryFee] = useState('')
-  const [scope, setScope] = useState<BolaoScope>('todos')
+  const [bolaoName, setBolaoName]     = useState('')
+  const [entryFee, setEntryFee]       = useState('')
+  const [scope, setScope]             = useState<BolaoScope>('todos')
   const [selectedTeams, setSelectedTeams] = useState<string[]>([])
+  const [hasArtilheiro, setHasArtilheiro] = useState(false)
   const [createdCode, setCreatedCode] = useState('')
   const [createdName, setCreatedName] = useState('')
 
@@ -43,7 +44,6 @@ export default function OnboardingPage() {
   const [joinCode, setJoinCode] = useState('')
 
   async function handleCreate() {
-    if (!bolaoName.trim()) return
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -59,6 +59,7 @@ export default function OnboardingPage() {
         owner_id: user.id,
         scope,
         scope_config: scopeConfig,
+        has_artilheiro: hasArtilheiro,
         entry_fee: feeInCents,
       }).select().single()
 
@@ -73,7 +74,7 @@ export default function OnboardingPage() {
 
       setCreatedCode(code)
       setCreatedName(bolaoName.trim())
-      setStep(3)
+      setStep(4)
     } catch {
       toast('Erro ao criar bolão. Tente novamente.', 'error')
     } finally {
@@ -126,7 +127,6 @@ export default function OnboardingPage() {
             <h1 className="text-3xl font-bold">Copa dos Amigos</h1>
             <p className="text-green-100">Crie ou entre em um bolão para começar</p>
           </div>
-
           <div className="space-y-3">
             <button onClick={() => setMode('criar')}
               className="w-full bg-white rounded-2xl p-5 text-left shadow-lg hover:shadow-xl transition active:scale-[0.98] min-h-[80px]">
@@ -138,7 +138,6 @@ export default function OnboardingPage() {
                 </div>
               </div>
             </button>
-
             <button onClick={() => setMode('entrar')}
               className="w-full bg-white/10 border border-white/30 rounded-2xl p-5 text-left hover:bg-white/20 transition active:scale-[0.98] min-h-[80px]">
               <div className="flex items-center gap-4">
@@ -174,9 +173,7 @@ export default function OnboardingPage() {
             placeholder="AB12CD"
             className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-4 py-4 text-center text-3xl font-mono tracking-widest uppercase focus:outline-none transition"
           />
-          <button
-            onClick={handleJoin}
-            disabled={joinCode.length < 4 || loading}
+          <button onClick={handleJoin} disabled={joinCode.length < 4 || loading}
             className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-40 text-lg min-h-[56px]">
             {loading ? 'Entrando...' : 'Entrar ⚽'}
           </button>
@@ -185,52 +182,39 @@ export default function OnboardingPage() {
     )
   }
 
-  // ── CRIAR BOLÃO ── PASSO 1 (nome + valor) ────────────────────────────
+  // ── CRIAR — PASSO 1: nome + valor ────────────────────────────────────
   if (mode === 'criar' && step === 1) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-green-800 px-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6">
           <button onClick={() => setMode('escolha')} className="text-gray-400 hover:text-gray-600 text-sm">← Voltar</button>
-
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Passo 1 de 2</p>
+            <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Passo 1 de 3</p>
             <h2 className="text-xl font-bold text-gray-900">Nome do bolão</h2>
           </div>
-
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome</label>
-              <input
-                value={bolaoName}
-                onChange={e => setBolaoName(e.target.value)}
+              <input value={bolaoName} onChange={e => setBolaoName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && bolaoName.trim() && setStep(2)}
                 placeholder="Ex: Galera da Firma 🏆"
                 maxLength={50}
                 className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-4 py-3.5 focus:outline-none transition text-base"
-                autoFocus
-              />
+                autoFocus />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor por pessoa (opcional)</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
-                <input
-                  type="number"
-                  value={entryFee}
-                  onChange={e => setEntryFee(e.target.value)}
-                  placeholder="0"
-                  min={0}
-                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl pl-10 pr-4 py-3.5 focus:outline-none transition text-base"
-                />
+                <input type="number" value={entryFee} onChange={e => setEntryFee(e.target.value)}
+                  placeholder="0" min={0}
+                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl pl-10 pr-4 py-3.5 focus:outline-none transition text-base" />
               </div>
-              {/* TODO: integração PIX para cobrança automática */}
-              <p className="text-xs text-gray-400 mt-1">Apenas referência — pagamentos confirmados manualmente pelo admin.</p>
+              {/* TODO: integração PIX para confirmação automática */}
+              <p className="text-xs text-gray-400 mt-1">Pagamentos confirmados manualmente pelo admin.</p>
             </div>
           </div>
-
-          <button
-            onClick={() => setStep(2)}
-            disabled={!bolaoName.trim()}
+          <button onClick={() => setStep(2)} disabled={!bolaoName.trim()}
             className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-40 text-lg min-h-[56px]">
             Próximo →
           </button>
@@ -239,7 +223,7 @@ export default function OnboardingPage() {
     )
   }
 
-  // ── CRIAR BOLÃO ── PASSO 2 (escopo) ─────────────────────────────────
+  // ── CRIAR — PASSO 2: escopo dos jogos ────────────────────────────────
   if (mode === 'criar' && step === 2) {
     const allTeams = Object.keys(TEAMS).sort()
     return (
@@ -247,9 +231,9 @@ export default function OnboardingPage() {
         <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-auto space-y-5">
           <button onClick={() => setStep(1)} className="text-gray-400 hover:text-gray-600 text-sm">← Voltar</button>
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Passo 2 de 2</p>
-            <h2 className="text-xl font-bold text-gray-900">Escopo do bolão</h2>
-            <p className="text-gray-500 text-sm">Quais jogos entram nos palpites?</p>
+            <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Passo 2 de 3</p>
+            <h2 className="text-xl font-bold text-gray-900">Quais jogos?</h2>
+            <p className="text-gray-500 text-sm">Escolha os jogos que entram nos palpites</p>
           </div>
 
           <div className="space-y-2">
@@ -262,7 +246,7 @@ export default function OnboardingPage() {
                     <p className="font-semibold text-gray-900">{opt.label}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>
                   </div>
-                  {scope === opt.value && <span className="text-green-600 text-xl">✓</span>}
+                  {scope === opt.value && <span className="text-green-600 text-xl shrink-0">✓</span>}
                 </div>
               </button>
             ))}
@@ -286,8 +270,67 @@ export default function OnboardingPage() {
           )}
 
           <button
-            onClick={handleCreate}
-            disabled={loading || (scope === 'times_especificos' && selectedTeams.length === 0)}
+            onClick={() => setStep(3)}
+            disabled={scope === 'times_especificos' && selectedTeams.length === 0}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-40 text-lg min-h-[56px]">
+            Próximo →
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── CRIAR — PASSO 3: add-on artilheiro ──────────────────────────────
+  if (mode === 'criar' && step === 3) {
+    const scopeLabel: Record<BolaoScope, string> = {
+      todos:             'Todos os 104 jogos',
+      fase_grupos:       'Fase de grupos (72)',
+      mata_mata:         'Mata-mata (32)',
+      times_especificos: selectedTeams.length > 0
+        ? selectedTeams.slice(0, 3).join(', ') + (selectedTeams.length > 3 ? `… +${selectedTeams.length - 3}` : '')
+        : 'Times específicos',
+      jogos_especificos: 'Jogos específicos',
+    }
+
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-green-800 px-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6">
+          <button onClick={() => setStep(2)} className="text-gray-400 hover:text-gray-600 text-sm">← Voltar</button>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Passo 3 de 3</p>
+            <h2 className="text-xl font-bold text-gray-900">Quer adicionar algo mais?</h2>
+            <p className="text-gray-500 text-sm">Combine tipos de aposta no mesmo bolão</p>
+          </div>
+
+          {/* Resumo do que foi escolhido */}
+          <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Seu bolão até agora</p>
+            <p className="font-bold text-gray-900">{bolaoName}</p>
+            <p className="text-sm text-green-700">✓ {scopeLabel[scope]}</p>
+          </div>
+
+          {/* Toggle artilheiro */}
+          <button onClick={() => setHasArtilheiro(v => !v)}
+            className={`w-full text-left rounded-2xl p-5 border-2 transition active:scale-[0.98] ${hasArtilheiro ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+            <div className="flex items-center gap-4">
+              <span className="text-3xl">🥅</span>
+              <div className="flex-1">
+                <p className="font-bold text-gray-900">+ Artilheiro da Copa</p>
+                <p className="text-sm text-gray-500 mt-0.5">Cada participante aposta no artilheiro. Pontuação separada.</p>
+              </div>
+              <div className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${hasArtilheiro ? 'bg-green-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${hasArtilheiro ? 'translate-x-7' : 'translate-x-1'}`} />
+              </div>
+            </div>
+          </button>
+
+          {hasArtilheiro && (
+            <p className="text-xs text-green-700 bg-green-50 rounded-xl px-4 py-3">
+              ✓ Seu bolão terá jogos <strong>e</strong> aposta no artilheiro — duas formas de pontuar!
+            </p>
+          )}
+
+          <button onClick={handleCreate} disabled={loading}
             className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-40 text-lg min-h-[56px]">
             {loading ? 'Criando...' : 'Criar bolão 🏆'}
           </button>
@@ -296,8 +339,8 @@ export default function OnboardingPage() {
     )
   }
 
-  // ── PASSO 3 — Compartilhar ───────────────────────────────────────────
-  if (step === 3) {
+  // ── PASSO 4 — Compartilhar ───────────────────────────────────────────
+  if (step === 4) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-green-800 px-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6 text-center">
@@ -310,7 +353,7 @@ export default function OnboardingPage() {
           <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-5">
             <p className="text-sm text-green-700 font-medium mb-1">Código do bolão</p>
             <p className="text-5xl font-mono font-bold tracking-widest text-green-700">{createdCode}</p>
-            <p className="text-xs text-green-600 mt-2">Qualquer pessoa pode entrar em <strong>/entrar/{createdCode}</strong></p>
+            <p className="text-xs text-green-600 mt-2">Link: <strong>/entrar/{createdCode}</strong></p>
           </div>
 
           <div className="flex flex-col gap-3">

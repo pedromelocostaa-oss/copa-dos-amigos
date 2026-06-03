@@ -24,7 +24,7 @@ export default async function PalpitesPage() {
       predictions={predictions ?? []}
       userId={user?.id ?? ''}
       bolaoName={bolao?.name}
-      bolaoScope={bolao?.scope}
+      hasArtilheiro={bolao?.has_artilheiro ?? false}
     />
   )
 }

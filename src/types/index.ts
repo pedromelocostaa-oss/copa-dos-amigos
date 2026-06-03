@@ -1,6 +1,6 @@
 export type PaymentStatus = 'pendente' | 'pago' | 'isento'
 
-export type BolaoScope = 'todos' | 'fase_grupos' | 'mata_mata' | 'times_especificos' | 'jogos_especificos' | 'artilheiro'
+export type BolaoScope = 'todos' | 'fase_grupos' | 'mata_mata' | 'times_especificos' | 'jogos_especificos'
 
 export interface Participant {
   id: string
@@ -60,6 +60,7 @@ export interface Bolao {
   owner_id: string
   scope: BolaoScope
   scope_config: Record<string, unknown>
+  has_artilheiro: boolean
   entry_fee: number
   prize_config: { distribution: number[] }
   is_active: boolean
@@ -107,8 +108,6 @@ export function filterMatchesByScope(matches: Match[], scope: BolaoScope, scopeC
       const ids = (scopeConfig.match_ids as string[]) ?? []
       return matches.filter(m => ids.includes(m.id))
     }
-    case 'artilheiro':
-      return []
     default:
       return matches
   }
