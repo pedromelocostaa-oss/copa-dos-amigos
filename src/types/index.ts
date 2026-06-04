@@ -83,8 +83,65 @@ export interface League {
   name: string
   code: string
   owner_id: string
+  entry_fee: number
+  enabled_modes: EnabledModes
   created_at: string
   member_count?: number
+}
+
+// W3.1 — Modos pagos
+export type BetMode = 'campeao' | 'artilheiro' | 'classificados'
+
+export interface EnabledModes {
+  campeao?: boolean
+  artilheiro?: boolean
+  classificados?: boolean
+}
+
+export interface ExtraPrediction {
+  id: string
+  league_id: string
+  user_id: string
+  mode: BetMode
+  /** campeao: {team: string, iso: string}
+   *  artilheiro: {player: string, team: string}
+   *  classificados: {A: [string, string], B: [...], ...} */
+  selection: Record<string, unknown>
+  points: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ModePurchase {
+  id: string
+  league_id: string
+  mode: BetMode | 'bundle'
+  amount: number
+  provider: string
+  provider_payment_id?: string
+  status: 'pending' | 'approved' | 'failed'
+  created_at: string
+}
+
+// Constantes de pontuação dos modos (configuráveis)
+export const MODE_POINTS = {
+  campeao: 50,
+  artilheiro: 30,
+  classificados_per_team: 10, // por seleção correta que se classificou
+} as const
+
+// Preços em centavos
+export const MODE_PRICES = {
+  campeao: 990,
+  artilheiro: 990,
+  classificados: 990,
+  bundle: 1990,
+} as const
+
+export const MODE_LABELS: Record<BetMode, { title: string; description: string; icon: string }> = {
+  campeao:       { title: 'Campeão da Copa',       description: 'Quem leva a taça?',                icon: '🏆' },
+  artilheiro:    { title: 'Artilheiro',             description: 'Quem vai ser o artilheiro?',       icon: '⚽' },
+  classificados: { title: 'Seleções Classificadas', description: 'Quem avança em cada grupo?',       icon: '🎯' },
 }
 
 export interface Prize {

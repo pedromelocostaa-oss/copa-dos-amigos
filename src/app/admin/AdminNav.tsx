@@ -10,6 +10,7 @@ const LINKS = [
   { href: '/admin/gols',          label: 'Gols',          icon: '🥅' },
   { href: '/admin/pagamentos',    label: 'Pagamentos',    icon: '💰' },
   { href: '/admin/participantes', label: 'Participantes', icon: '👥' },
+  { href: '/admin/modos',         label: 'Modos',         icon: '🎯' },
 ]
 
 export default function AdminNav() {

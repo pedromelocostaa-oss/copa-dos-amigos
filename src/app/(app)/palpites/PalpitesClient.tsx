@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import FlagImage from '@/components/ui/FlagImage'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
+import ModosBonus from '@/components/modos/ModosBonus'
+import type { EnabledModes, ExtraPrediction } from '@/types'
 
 interface Match {
   id: string; home_team: string; away_team: string; home_iso: string; away_iso: string
@@ -13,10 +15,14 @@ interface Match {
   home_score?: number; away_score?: number; is_finished: boolean
 }
 interface Prediction { id: string; match_id: string; home_score: number; away_score: number }
-interface LeagueBasic { id: string; name: string }
+interface LeagueBasic { id: string; name: string; owner_id?: string; enabled_modes?: Record<string, boolean> }
 interface Props {
   matches: Match[]; predictions: Prediction[]; userId: string
   leagues: LeagueBasic[]; selectedLeagueId?: string
+  enabledModes?: Record<string, boolean>
+  extraPredictions?: unknown[]
+  isOwner?: boolean
+  tournamentStarted?: boolean
 }
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 type Filter = 'todos' | 'abertos' | 'feitos'
@@ -32,7 +38,10 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })
 }
 
-export default function PalpitesClient({ matches, predictions, userId, leagues, selectedLeagueId }: Props) {
+export default function PalpitesClient({
+  matches, predictions, userId, leagues, selectedLeagueId,
+  enabledModes = {}, extraPredictions = [], isOwner = false, tournamentStarted = false,
+}: Props) {
   const supabase = createClient()
   const router = useRouter()
   const { toast } = useToast()
@@ -246,6 +255,18 @@ export default function PalpitesClient({ matches, predictions, userId, leagues, 
           </div>
         )
       })}
+
+      {/* ── Seção Bônus (Modos pagos) ── */}
+      {selectedLeagueId && (
+        <ModosBonus
+          leagueId={selectedLeagueId}
+          userId={userId}
+          enabledModes={enabledModes as EnabledModes}
+          existingPredictions={extraPredictions as ExtraPrediction[]}
+          isOwner={isOwner}
+          tournamentStarted={tournamentStarted}
+        />
+      )}
     </div>
   )
 }
