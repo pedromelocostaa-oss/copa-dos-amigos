@@ -27,6 +27,9 @@ export default function PerfilPage() {
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
   const [stats, setStats] = useState({ total: 0, exact: 0, correct: 0, points: 0 })
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -71,6 +74,19 @@ export default function PerfilPage() {
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirm !== 'EXCLUIR') return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/conta/excluir', { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      router.push('/login?deleted=1')
+    } catch {
+      toast('Erro ao excluir conta. Tente novamente.', 'error')
+      setDeleting(false)
+    }
   }
 
   if (!profile) {
@@ -163,6 +179,54 @@ export default function PerfilPage() {
         className="w-full min-h-[52px] flex items-center justify-center gap-2 text-sm text-red-500 font-semibold border border-red-200 rounded-xl hover:bg-red-50 active:bg-red-100 transition">
         🚪 Sair da conta
       </button>
+
+      {/* Excluir conta */}
+      <button onClick={() => setShowDeleteModal(true)}
+        className="w-full min-h-[44px] flex items-center justify-center text-xs text-gray-400 hover:text-red-500 transition">
+        Excluir minha conta
+      </button>
+
+      {/* Modal de confirmação */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center px-4 pb-6 sm:pb-0">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-5 shadow-2xl">
+            <div className="text-center space-y-2">
+              <div className="text-4xl">⚠️</div>
+              <h2 className="text-lg font-black text-gray-900">Excluir conta?</h2>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Isso vai apagar permanentemente sua conta, todos os seus palpites e histórico. <strong>Esta ação não pode ser desfeita.</strong>
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-700">
+                Digite <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-red-600">EXCLUIR</span> para confirmar
+              </p>
+              <input
+                value={deleteConfirm}
+                onChange={e => setDeleteConfirm(e.target.value)}
+                placeholder="EXCLUIR"
+                style={{ fontSize: '16px' }}
+                className="w-full border-2 border-gray-200 focus:border-red-400 rounded-xl px-4 py-3 focus:outline-none transition font-mono tracking-widest text-center uppercase"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirm !== 'EXCLUIR' || deleting}
+                className="w-full bg-red-600 disabled:bg-red-200 text-white font-bold py-3.5 rounded-xl transition min-h-[48px]">
+                {deleting ? 'Excluindo...' : 'Sim, excluir minha conta'}
+              </button>
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirm('') }}
+                className="w-full py-3 text-sm text-gray-500 font-medium min-h-[44px]">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
