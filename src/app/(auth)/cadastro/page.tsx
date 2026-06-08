@@ -42,6 +42,8 @@ function CadastroForm() {
     if (signUpError) {
       if (signUpError.message.includes('already registered')) {
         setError('Este email já está cadastrado. Faça login.')
+      } else if (signUpError.message.includes('rate limit') || signUpError.message.includes('too many')) {
+        setError('Muitos cadastros em pouco tempo. Aguarde alguns minutos e tente novamente.')
       } else {
         setError(signUpError.message)
       }
