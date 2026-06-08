@@ -5,7 +5,7 @@ import JoinBolaoInline from './JoinBolaoInline'
 import DashboardBolao from './DashboardBolao'
 import Countdown from './Countdown'
 
-interface LeagueRow { id: string; name: string; code: string; owner_id: string; entry_fee: number }
+interface LeagueRow { id: string; name: string; code: string; owner_id: string; entry_fee: number; game_scope: string | null; team_filter_iso: string | null; single_match_id: string | null }
 interface MemberRow { league_id: string; leagues: LeagueRow }
 
 const ORIGIN = 'https://copa-dos-amigos.vercel.app'
@@ -14,11 +14,40 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: participant }, { data: memberRows }, { data: nextMatchRaw }, { data: todayMatches }, { data: recentResults }] = await Promise.all([
+  // Busca participante e bolões primeiro (para construir filtro do próximo jogo)
+  const [{ data: participant }, { data: memberRows }] = await Promise.all([
     supabase.from('participants').select('name, is_admin, payment_status').eq('user_id', user?.id).single(),
-    supabase.from('league_members').select('league_id, leagues(id,name,code,owner_id,entry_fee)').eq('user_id', user?.id),
-    supabase.from('matches').select('id,home_team,away_team,home_iso,away_iso,match_date,stage,group_name')
-      .eq('is_finished', false).order('match_date', { ascending: true }).limit(1).maybeSingle(),
+    supabase.from('league_members').select('league_id, leagues(id,name,code,owner_id,entry_fee,game_scope,team_filter_iso,single_match_id)').eq('user_id', user?.id),
+  ])
+
+  const leagues = ((memberRows as unknown as MemberRow[]) ?? []).map(m => m.leagues).filter(Boolean)
+
+  // Monta query do próximo jogo filtrada pelo escopo do primeiro bolão
+  const primaryLeague = leagues[0] ?? null
+  const scope = primaryLeague?.game_scope ?? 'all'
+  const teamIso = primaryLeague?.team_filter_iso
+  const matchId = primaryLeague?.single_match_id
+
+  let nextMatchQuery = supabase.from('matches')
+    .select('id,home_team,away_team,home_iso,away_iso,match_date,stage,group_name')
+    .eq('is_finished', false)
+    .order('match_date', { ascending: true })
+    .limit(1)
+
+  if (scope === 'brazil') {
+    nextMatchQuery = nextMatchQuery.or('home_iso.eq.br,away_iso.eq.br')
+  } else if (scope === 'groups') {
+    nextMatchQuery = nextMatchQuery.eq('stage', 'Fase de Grupos')
+  } else if (scope === 'knockout') {
+    nextMatchQuery = nextMatchQuery.neq('stage', 'Fase de Grupos')
+  } else if (scope === 'team' && teamIso) {
+    nextMatchQuery = nextMatchQuery.or(`home_iso.eq.${teamIso},away_iso.eq.${teamIso}`)
+  } else if (scope === 'match' && matchId) {
+    nextMatchQuery = nextMatchQuery.eq('id', matchId)
+  }
+
+  const [{ data: nextMatchRaw }, { data: todayMatches }, { data: recentResults }] = await Promise.all([
+    nextMatchQuery.maybeSingle(),
     // Jogos do dia (próximas 24h)
     supabase.from('matches').select('id,home_team,away_team,home_iso,away_iso,match_date,stage,group_name')
       .eq('is_finished', false)
@@ -34,7 +63,6 @@ export default async function DashboardPage() {
   ])
 
   const firstName = (participant?.name ?? 'Participante').split(' ')[0]
-  const leagues = ((memberRows as unknown as MemberRow[]) ?? []).map(m => m.leagues).filter(Boolean)
   const nextMatch = nextMatchRaw ?? null
   const isPaid = ['pago','isento'].includes(participant?.payment_status ?? '')
 
