@@ -13,7 +13,7 @@ export default async function PalpitesPage({ searchParams }: Props) {
   // Busca bolões do usuário com configurações de regras
   const { data: memberRows } = await supabase
     .from('league_members')
-    .select('league_id, leagues(id,name,owner_id,enabled_modes,game_scope,prediction_mode)')
+    .select('league_id, leagues(id,name,owner_id,enabled_modes,game_scope,prediction_mode,team_filter_iso,single_match_id)')
     .eq('user_id', user?.id)
 
   interface MemberRow {
@@ -25,13 +25,17 @@ export default async function PalpitesPage({ searchParams }: Props) {
       enabled_modes: Record<string, boolean>
       game_scope: string | null
       prediction_mode: string | null
+      team_filter_iso: string | null
+      single_match_id: string | null
     }
   }
   const leagues = ((memberRows as unknown as MemberRow[]) ?? []).map(m => m.leagues).filter(Boolean)
   const selectedLeague = leagues.find(l => l.id === bolaoParam) ?? leagues[0] ?? null
 
-  const gameScope = (selectedLeague?.game_scope ?? 'all') as 'all' | 'brazil' | 'groups' | 'knockout'
+  const gameScope = (selectedLeague?.game_scope ?? 'all') as 'all' | 'brazil' | 'groups' | 'knockout' | 'team' | 'match'
   const predictionMode = (selectedLeague?.prediction_mode ?? 'score') as 'score' | 'winner'
+  const teamFilterIso = selectedLeague?.team_filter_iso ?? null
+  const singleMatchId = selectedLeague?.single_match_id ?? null
 
   // Monta filtro de partidas baseado no escopo do bolão
   let matchQuery = supabase.from('matches').select('*').order('match_date', { ascending: true })
@@ -41,6 +45,10 @@ export default async function PalpitesPage({ searchParams }: Props) {
     matchQuery = matchQuery.eq('stage', 'Fase de Grupos')
   } else if (gameScope === 'knockout') {
     matchQuery = matchQuery.neq('stage', 'Fase de Grupos')
+  } else if (gameScope === 'team' && teamFilterIso) {
+    matchQuery = matchQuery.or(`home_iso.eq.${teamFilterIso},away_iso.eq.${teamFilterIso}`)
+  } else if (gameScope === 'match' && singleMatchId) {
+    matchQuery = matchQuery.eq('id', singleMatchId)
   }
 
   const [{ data: matches }, { data: predictions }, { data: extraPredictions }, { data: firstMatch }] =

@@ -24,7 +24,7 @@ interface Props {
   isOwner?: boolean
   tournamentStarted?: boolean
   predictionMode?: 'score' | 'winner'
-  gameScope?: 'all' | 'brazil' | 'groups' | 'knockout'
+  gameScope?: 'all' | 'brazil' | 'groups' | 'knockout' | 'team' | 'match'
 }
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 type Filter = 'todos' | 'abertos' | 'feitos'
@@ -158,6 +158,8 @@ export default function PalpitesClient({
             {gameScope === 'brazil' && <p className="text-xs font-semibold text-blue-800">🇧🇷 Mostrando só jogos do Brasil</p>}
             {gameScope === 'groups' && <p className="text-xs font-semibold text-blue-800">📋 Mostrando só a fase de grupos</p>}
             {gameScope === 'knockout' && <p className="text-xs font-semibold text-blue-800">⚡ Mostrando só fase eliminatória</p>}
+            {gameScope === 'team' && <p className="text-xs font-semibold text-blue-800">🔵 Mostrando só jogos da seleção escolhida</p>}
+            {gameScope === 'match' && <p className="text-xs font-semibold text-blue-800">⚽ Bolão de jogo único</p>}
             {predictionMode === 'winner'
               ? <p className="text-xs text-blue-700">✅ Modo simples: chute o vencedor · <strong>3pts</strong> por acerto</p>
               : <p className="text-xs text-blue-700">🎯 Placar exato: <strong>10pts</strong> · Vencedor: <strong>5pts</strong></p>
