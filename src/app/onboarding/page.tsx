@@ -144,13 +144,26 @@ export default function OnboardingPage() {
             </button>
           </div>
 
-          <p className="text-center text-green-200 text-xs">
-            Não sabe como funciona?{' '}
-            <button onClick={() => router.push('/como-funciona')}
-              className="underline font-medium min-h-[44px] inline-flex items-center">
-              Saiba mais →
-            </button>
-          </p>
+          {/* Como funciona */}
+          <div className="bg-white/10 rounded-2xl p-5 space-y-4">
+            <p className="text-white font-bold text-sm text-center uppercase tracking-wide opacity-80">Como funciona</p>
+            <div className="space-y-3">
+              {[
+                { icon: '🏆', title: 'Crie ou entre num bolão', desc: 'Em segundos, sem precisar de cartão.' },
+                { icon: '✏️', title: 'Faça seus palpites', desc: 'Chute o placar de todos os jogos da Copa 2026.' },
+                { icon: '⚽', title: 'Ganhe pontos', desc: '10 pts para placar exato · 5 pts para resultado certo.' },
+                { icon: '🥇', title: 'Acompanhe o ranking', desc: 'Veja quem tá na frente em tempo real após cada jogo.' },
+              ].map(item => (
+                <div key={item.icon} className="flex items-start gap-3">
+                  <span className="text-2xl shrink-0 mt-0.5">{item.icon}</span>
+                  <div>
+                    <p className="text-white font-semibold text-sm">{item.title}</p>
+                    <p className="text-green-200 text-xs">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     )

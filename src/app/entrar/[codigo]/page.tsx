@@ -1,12 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import EntrarInlineForm from './EntrarInlineForm'
 
 interface Props {
   params: Promise<{ codigo: string }>
 }
 
-// Server Action — entra e vai direto pra palpites
+// Server Action — entra e vai direto pra palpites (para usuário já logado)
 async function doJoin(leagueId: string, userId: string) {
   'use server'
   const supabase = await createClient()
@@ -48,7 +49,7 @@ export default async function EntrarPage({ params }: Props) {
     )
   }
 
-  // Dados do bolão para o preview rico
+  // Dados do bolão para o preview
   const [
     { count: memberCount },
     { data: members },
@@ -81,11 +82,10 @@ export default async function EntrarPage({ params }: Props) {
     if (existing) redirect('/dashboard')
   }
 
-  // Preview rico — igual para logado e deslogado
   const PreviewCard = () => (
-    <div className="w-full max-w-sm mx-auto space-y-5">
+    <div className="w-full max-w-sm mx-auto space-y-4">
       {/* Header */}
-      <div className="text-center text-white space-y-2">
+      <div className="text-center text-white space-y-1">
         <p className="text-green-200 text-sm font-medium">
           {ownerName} te convidou para o bolão
         </p>
@@ -93,7 +93,7 @@ export default async function EntrarPage({ params }: Props) {
       </div>
 
       {/* Stats */}
-      <div className="bg-white/15 rounded-2xl p-5 space-y-4">
+      <div className="bg-white/15 rounded-2xl p-4 space-y-3">
         <div className="grid grid-cols-3 gap-3 text-center">
           <div>
             <p className="text-2xl font-black text-white">{totalMembers}</p>
@@ -123,7 +123,6 @@ export default async function EntrarPage({ params }: Props) {
           )}
         </div>
 
-        {/* Prova social */}
         {memberInitials.length > 0 && (
           <div className="flex items-center gap-2">
             <div className="flex -space-x-2">
@@ -147,46 +146,32 @@ export default async function EntrarPage({ params }: Props) {
           </div>
         )}
       </div>
-
-      {/* Código visível */}
-      <div className="text-center">
-        <p className="text-green-200 text-xs">Código do bolão</p>
-        <p className="font-mono font-black text-white text-2xl tracking-widest">{league.code}</p>
-      </div>
     </div>
   )
 
-  // ── Usuário NÃO logado ─────────────────────────────────────────
+  // ── Usuário NÃO logado → formulário inline de cadastro/login ──────
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col justify-center bg-gradient-to-br from-green-600 to-green-800 px-4 py-10">
-        <PreviewCard />
-        <div className="w-full max-w-sm mx-auto mt-6 space-y-3">
-          {/* Google como CTA primário no contexto de convite */}
-          <Link
-            href={`/login?next=/entrar/${code}`}
-            className="block w-full bg-white text-green-700 font-black py-4 rounded-2xl text-center text-xl shadow-lg active:opacity-80 min-h-[56px] flex items-center justify-center gap-2"
-          >
-            Entrar no bolão ⚽
-          </Link>
-          <p className="text-center text-green-100 text-sm">
-            Não tem conta?{' '}
-            <Link href={`/cadastro?next=/entrar/${code}`} className="font-bold underline">
-              Criar grátis
-            </Link>
-          </p>
+        <div className="w-full max-w-sm mx-auto space-y-5">
+          <PreviewCard />
+          <EntrarInlineForm
+            leagueId={league.id}
+            code={code}
+            leagueName={league.name}
+          />
         </div>
       </div>
     )
   }
 
-  // ── Usuário logado, não-membro — preview rico + 1 toque ─────────
+  // ── Usuário logado, não-membro — 1 toque ─────────────────────────
   const joinAction = doJoin.bind(null, league.id, user.id)
 
   return (
     <div className="min-h-screen flex flex-col justify-center bg-gradient-to-br from-green-600 to-green-800 px-4 py-10">
-      <PreviewCard />
-      <div className="w-full max-w-sm mx-auto mt-6 space-y-3">
+      <div className="w-full max-w-sm mx-auto space-y-5">
+        <PreviewCard />
         <form action={joinAction}>
           <button
             type="submit"
