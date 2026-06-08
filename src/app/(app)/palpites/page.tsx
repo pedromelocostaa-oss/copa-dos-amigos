@@ -10,24 +10,42 @@ export default async function PalpitesPage({ searchParams }: Props) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Busca bolões do usuário com enabled_modes
+  // Busca bolões do usuário com configurações de regras
   const { data: memberRows } = await supabase
     .from('league_members')
-    .select('league_id, leagues(id,name,owner_id,enabled_modes)')
+    .select('league_id, leagues(id,name,owner_id,enabled_modes,game_scope,prediction_mode)')
     .eq('user_id', user?.id)
 
   interface MemberRow {
     league_id: string
-    leagues: { id: string; name: string; owner_id: string; enabled_modes: Record<string, boolean> }
+    leagues: {
+      id: string
+      name: string
+      owner_id: string
+      enabled_modes: Record<string, boolean>
+      game_scope: string | null
+      prediction_mode: string | null
+    }
   }
   const leagues = ((memberRows as unknown as MemberRow[]) ?? []).map(m => m.leagues).filter(Boolean)
   const selectedLeague = leagues.find(l => l.id === bolaoParam) ?? leagues[0] ?? null
 
-  const now = new Date().toISOString()
+  const gameScope = (selectedLeague?.game_scope ?? 'all') as 'all' | 'brazil' | 'groups' | 'knockout'
+  const predictionMode = (selectedLeague?.prediction_mode ?? 'score') as 'score' | 'winner'
+
+  // Monta filtro de partidas baseado no escopo do bolão
+  let matchQuery = supabase.from('matches').select('*').order('match_date', { ascending: true })
+  if (gameScope === 'brazil') {
+    matchQuery = matchQuery.or('home_iso.eq.br,away_iso.eq.br')
+  } else if (gameScope === 'groups') {
+    matchQuery = matchQuery.eq('stage', 'Fase de Grupos')
+  } else if (gameScope === 'knockout') {
+    matchQuery = matchQuery.neq('stage', 'Fase de Grupos')
+  }
 
   const [{ data: matches }, { data: predictions }, { data: extraPredictions }, { data: firstMatch }] =
     await Promise.all([
-      supabase.from('matches').select('*').order('match_date', { ascending: true }),
+      matchQuery,
       supabase.from('predictions').select('*').eq('user_id', user?.id),
       selectedLeague
         ? supabase.from('extra_predictions').select('*').eq('user_id', user?.id).eq('league_id', selectedLeague.id)
@@ -49,6 +67,8 @@ export default async function PalpitesPage({ searchParams }: Props) {
       extraPredictions={extraPredictions ?? []}
       isOwner={isOwner}
       tournamentStarted={tournamentStarted}
+      predictionMode={predictionMode}
+      gameScope={gameScope}
     />
   )
 }

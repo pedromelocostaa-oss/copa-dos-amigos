@@ -23,6 +23,8 @@ interface Props {
   extraPredictions?: unknown[]
   isOwner?: boolean
   tournamentStarted?: boolean
+  predictionMode?: 'score' | 'winner'
+  gameScope?: 'all' | 'brazil' | 'groups' | 'knockout'
 }
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 type Filter = 'todos' | 'abertos' | 'feitos'
@@ -41,6 +43,7 @@ function formatDate(dateStr: string) {
 export default function PalpitesClient({
   matches, predictions, userId, leagues, selectedLeagueId,
   enabledModes = {}, extraPredictions = [], isOwner = false, tournamentStarted = false,
+  predictionMode = 'score', gameScope = 'all',
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -146,6 +149,22 @@ export default function PalpitesClient({
           <span className="text-sm text-gray-500 shrink-0 font-medium">{completedCount}/{matches.length}</span>
         </div>
       </div>
+
+      {/* Banner de regras do bolão */}
+      {(predictionMode === 'winner' || gameScope !== 'all') && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-start gap-3">
+          <span className="text-xl shrink-0">📋</span>
+          <div className="flex-1 min-w-0 space-y-0.5">
+            {gameScope === 'brazil' && <p className="text-xs font-semibold text-blue-800">🇧🇷 Mostrando só jogos do Brasil</p>}
+            {gameScope === 'groups' && <p className="text-xs font-semibold text-blue-800">📋 Mostrando só a fase de grupos</p>}
+            {gameScope === 'knockout' && <p className="text-xs font-semibold text-blue-800">⚡ Mostrando só fase eliminatória</p>}
+            {predictionMode === 'winner'
+              ? <p className="text-xs text-blue-700">✅ Modo simples: chute o vencedor · <strong>3pts</strong> por acerto</p>
+              : <p className="text-xs text-blue-700">🎯 Placar exato: <strong>10pts</strong> · Vencedor: <strong>5pts</strong></p>
+            }
+          </div>
+        </div>
+      )}
 
       {/* P1.4a: Banner "jogos fechando em breve" */}
       {closingSoon.length > 0 && (
