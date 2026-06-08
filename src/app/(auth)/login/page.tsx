@@ -152,16 +152,25 @@ function LoginForm() {
               className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 text-base" />
           </div>
 
-          {/* Código de bolão (opcional) */}
-          <button type="button" onClick={() => setShowCode(v => !v)}
-            className="text-sm text-green-600 font-medium hover:underline flex items-center gap-1">
-            {showCode ? '▾' : '▸'} Tenho um código de bolão
-          </button>
-          {showCode && (
-            <input type="text" value={bolaoCode}
-              onChange={e => setBolaoCode(e.target.value.toUpperCase())}
-              maxLength={6} placeholder="Ex: AB12CD"
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 font-mono text-2xl tracking-widest text-center uppercase focus:outline-none focus:ring-2 focus:ring-green-500 text-base" />
+          {/* Código de bolão */}
+          {!showCode ? (
+            <button type="button" onClick={() => setShowCode(true)}
+              className="w-full flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 border-2 border-green-200 hover:border-green-400 text-green-700 font-bold py-3.5 rounded-xl transition min-h-[52px] text-sm">
+              🔑 Tenho um código de bolão
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-gray-700">🔑 Código do bolão</p>
+                <button type="button" onClick={() => { setShowCode(false); setBolaoCode('') }}
+                  className="text-xs text-gray-400 hover:text-gray-600">remover</button>
+              </div>
+              <input type="text" value={bolaoCode}
+                onChange={e => setBolaoCode(e.target.value.toUpperCase())}
+                maxLength={6} placeholder="AB12CD" autoFocus
+                style={{ fontSize: '16px' }}
+                className="w-full border-2 border-green-400 rounded-xl px-4 py-3 font-mono text-2xl tracking-widest text-center uppercase focus:outline-none focus:ring-2 focus:ring-green-500" />
+            </div>
           )}
 
           {error && <p className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
