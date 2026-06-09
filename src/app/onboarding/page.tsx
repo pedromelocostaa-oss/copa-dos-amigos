@@ -77,7 +77,7 @@ export default function OnboardingPage() {
   const [bolaoName, setBolaoName] = useState('')
 
   // Passo 2 — Jogos
-  const [gameScope, setGameScope] = useState<GameScope>('all')
+  const [gameScope, setGameScope] = useState<GameScope>('groups')
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]) // multi-select
   const [teamSearch, setTeamSearch] = useState('')
   const [singleMatchId, setSingleMatchId] = useState('')
@@ -284,8 +284,7 @@ export default function OnboardingPage() {
   // ── PASSO 2: JOGOS ────────────────────────────────────────────────────────
   if (screen === 'criar_jogos') {
     const scopeOptions = [
-      { id: 'all',    icon: '🌍', title: 'Copa Completa',       desc: 'Todos os 104 jogos da Copa 2026',    badge: 'Mais popular' },
-      { id: 'groups', icon: '📋', title: 'Fase de Grupos',      desc: 'Os 48 jogos da fase inicial'         },
+      { id: 'groups', icon: '📋', title: 'Fase de Grupos',      desc: 'Os 48 jogos da fase inicial · Os times ainda não estão definidos para o mata-mata', badge: 'Mais popular' },
       { id: 'team',   icon: '🔵', title: 'Seleção(ões)',        desc: 'Escolha 1 ou mais seleções para acompanhar' },
       { id: 'match',  icon: '⚽', title: 'Jogo específico',     desc: 'Bolão de uma única partida'          },
     ]
