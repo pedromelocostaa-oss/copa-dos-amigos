@@ -26,6 +26,7 @@ export default async function DashboardPage() {
   const primaryLeague = leagues[0] ?? null
   const scope = primaryLeague?.game_scope ?? 'all'
   const teamIso = primaryLeague?.team_filter_iso
+  const teamIsos: string[] = (primaryLeague as unknown as { team_filter_isos?: string[] })?.team_filter_isos ?? (teamIso ? [teamIso] : [])
   const matchId = primaryLeague?.single_match_id
 
   let nextMatchQuery = supabase.from('matches')
@@ -40,8 +41,9 @@ export default async function DashboardPage() {
     nextMatchQuery = nextMatchQuery.eq('stage', 'Fase de Grupos')
   } else if (scope === 'knockout') {
     nextMatchQuery = nextMatchQuery.neq('stage', 'Fase de Grupos')
-  } else if (scope === 'team' && teamIso) {
-    nextMatchQuery = nextMatchQuery.or(`home_iso.eq.${teamIso},away_iso.eq.${teamIso}`)
+  } else if (scope === 'team' && teamIsos.length > 0) {
+    const conditions = teamIsos.flatMap(iso => [`home_iso.eq.${iso}`, `away_iso.eq.${iso}`]).join(',')
+    nextMatchQuery = nextMatchQuery.or(conditions)
   } else if (scope === 'match' && matchId) {
     nextMatchQuery = nextMatchQuery.eq('id', matchId)
   }

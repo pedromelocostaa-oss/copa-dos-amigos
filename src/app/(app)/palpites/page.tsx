@@ -35,6 +35,7 @@ export default async function PalpitesPage({ searchParams }: Props) {
   const gameScope = (selectedLeague?.game_scope ?? 'all') as 'all' | 'brazil' | 'groups' | 'knockout' | 'team' | 'match'
   const predictionMode = (selectedLeague?.prediction_mode ?? 'score') as 'score' | 'winner'
   const teamFilterIso = selectedLeague?.team_filter_iso ?? null
+  const teamFilterIsos: string[] = (selectedLeague as unknown as { team_filter_isos?: string[] })?.team_filter_isos ?? (teamFilterIso ? [teamFilterIso] : [])
   const singleMatchId = selectedLeague?.single_match_id ?? null
 
   // Monta filtro de partidas baseado no escopo do bolão
@@ -45,8 +46,9 @@ export default async function PalpitesPage({ searchParams }: Props) {
     matchQuery = matchQuery.eq('stage', 'Fase de Grupos')
   } else if (gameScope === 'knockout') {
     matchQuery = matchQuery.neq('stage', 'Fase de Grupos')
-  } else if (gameScope === 'team' && teamFilterIso) {
-    matchQuery = matchQuery.or(`home_iso.eq.${teamFilterIso},away_iso.eq.${teamFilterIso}`)
+  } else if (gameScope === 'team' && teamFilterIsos.length > 0) {
+    const conditions = teamFilterIsos.flatMap(iso => [`home_iso.eq.${iso}`, `away_iso.eq.${iso}`]).join(',')
+    matchQuery = matchQuery.or(conditions)
   } else if (gameScope === 'match' && singleMatchId) {
     matchQuery = matchQuery.eq('id', singleMatchId)
   }
