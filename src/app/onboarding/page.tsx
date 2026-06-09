@@ -283,7 +283,7 @@ export default function OnboardingPage() {
         { id: 'all',      icon: '🌍', title: 'Copa Completa',        subtitle: 'Todos os 104 jogos da Copa 2026', badge: 'Mais popular' },
         { id: 'groups',   icon: '📋', title: 'Fase de Grupos',       subtitle: '48 jogos da fase inicial' },
         { id: 'knockout', icon: '⚡', title: 'Fase Eliminatória',    subtitle: 'Oitavas, quartas, semi e final' },
-        { id: 'brazil',   icon: '🇧🇷', title: 'Só o Brasil',          subtitle: 'Apenas jogos da Seleção Brasileira' },
+        { id: 'brazil',   icon: '🇧🇷', title: 'Só o Brasil',          subtitle: 'Jogos do Brasil na fase de grupos · Crie um bolão por jogo na fase eliminatória' },
         { id: 'team',     icon: '🔵', title: 'Seleção específica',   subtitle: 'Escolha um time para acompanhar' },
         { id: 'match',    icon: '⚽', title: 'Jogo único',           subtitle: 'Apostas em uma partida específica' },
       ]
